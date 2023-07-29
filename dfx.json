@@ -3,19 +3,15 @@
     "arcmindai_backend": {
       "candid": "src/arcmindai_backend/arcmindai_backend.did",
       "package": "arcmindai_backend",
-      "type": "rust"
+      "type": "rust",
+      "optimize": "cycles"
     },
     "arcmindai_frontend": {
-      "dependencies": [
-        "arcmindai_backend"
-      ],
+      "dependencies": ["arcmindai_backend"],
       "frontend": {
         "entrypoint": "src/arcmindai_frontend/src/index.html"
       },
-      "source": [
-        "src/arcmindai_frontend/assets",
-        "dist/arcmindai_frontend/"
-      ],
+      "source": ["src/arcmindai_frontend/assets", "dist/arcmindai_frontend/"],
       "type": "assets"
     }
   },
