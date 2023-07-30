@@ -1,5 +1,6 @@
 {
   "rust-analyzer.linkedProjects": [
-    "./src/arcmindai_controller/Cargo.toml"
+    "./src/arcmindai_controller/Cargo.toml",
+    "./src/arcmindai_brain/Cargo.toml"
   ]
 }
