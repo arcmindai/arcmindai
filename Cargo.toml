@@ -1,4 +1,9 @@
 [workspace]
 members = [
-    "src/arcmindai_backend",
+    "src/arcmindai_controller",
 ]
+
+[profile.release]
+lto = true
+opt-level = 'z'
+codegen-units = 1

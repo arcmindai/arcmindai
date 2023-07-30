@@ -1,5 +1,5 @@
 [package]
-name = "arcmindai_backend"
+name = "arcmindai_controller"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,5 +9,12 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
+candid = "0.8"
+ic-cdk = "0.7"
+ic-cdk-macros = "0.6.0"
+serde = "1.0.152"
+ciborium = "0.2"
+
+[build-dependencies]
 candid = "0.8"
 ic-cdk = "0.7"

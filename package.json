@@ -14,7 +14,7 @@
     "start": "webpack serve --mode development --env development",
     "deploy:local": "dfx deploy --network=local",
     "deploy:ic": "dfx deploy --network=ic",
-    "generate": "dfx generate arcmindai_backend"
+    "generate": "dfx generate arcmindai_controller"
   },
   "dependencies": {
     "@dfinity/agent": "^0.18.1",
