@@ -1,4 +1,3 @@
-service : {
+service : (opt principal) -> {
     greet : (text) -> (text) query;
-    init : () -> ();
 };

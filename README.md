@@ -1,5 +1,16 @@
 # Arcmind Autonomous AI Agent
 
+## Quick Start
+
+- Install Rust Toolchain using rustup
+  Follows https://www.rust-lang.org/tools/install
+- Install
+  Install cargo-audit
+
+```
+cargo install cargo-audit
+```
+
 Welcome to your new Arcmind AI project and to the internet computer development community. By default, creating a new project adds this README and some template files to your project directory. You can edit these template files to customize your project and to include your own code to speed up the development cycle.
 
 To get started, you might want to explore the project directory structure and the default configuration file. Working with this project in your development environment will not affect any production deployment or identity tokens.
@@ -20,14 +31,6 @@ If you want to start working on your project right away, you might want to try t
 cd arcmindai/
 dfx help
 dfx canister --help
-```
-
-## Build
-
-Extra build steps:
-
-```
-cargo install cargo-audit
 ```
 
 ## Running the project locally

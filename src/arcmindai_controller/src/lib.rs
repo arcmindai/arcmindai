@@ -2,7 +2,10 @@ use std::{cell::RefCell, ops::Deref};
 
 use candid::{candid_method, CandidType, Deserialize, Principal};
 use ic_cdk::{
-    api::stable::{StableReader, StableWriter},
+    api::{
+        self,
+        stable::{StableReader, StableWriter},
+    },
     init, post_upgrade, pre_upgrade, query,
 };
 use serde::Serialize;
@@ -21,12 +24,13 @@ thread_local! {
 }
 
 // Controller canister must be created with principal
-#[candid_method(update)]
 #[init]
-fn init() {
+#[candid_method(init)]
+fn init(owner: Option<Principal>) {
+    let my_owner: Principal = owner.unwrap_or_else(|| api::caller());
     STATE.with(|state| {
         *state.borrow_mut() = State {
-            owner: Some(ic_cdk::api::caller()),
+            owner: Some(my_owner),
         };
     });
 }
@@ -55,7 +59,7 @@ fn post_upgrade() {
 
 #[cfg(test)]
 mod tests {
-    use candid::export_service;
+    use candid::{export_service, Principal};
 
     #[test]
     fn save_candid() {
