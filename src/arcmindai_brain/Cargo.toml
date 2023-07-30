@@ -1,0 +1,20 @@
+[package]
+name = "arcmindai_brain"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+candid = "0.8"
+ic-cdk = "0.7"
+ic-cdk-macros = "0.6.0"
+serde = "1.0.152"
+ciborium = "0.2"
+
+[build-dependencies]
+candid = "0.8"
+ic-cdk = "0.7"

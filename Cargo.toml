@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "src/arcmindai_controller",
+    "src/arcmindai_brain"
 ]
 
 [profile.release]

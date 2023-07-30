@@ -5,6 +5,12 @@
       "package": "arcmindai_controller",
       "type": "rust",
       "optimize": "cycles"
+    },
+    "arcmindai_brain": {
+      "candid": "src/arcmindai_brain/arcmindai_brain.did",
+      "package": "arcmindai_brain",
+      "type": "rust",
+      "optimize": "cycles"
     }
   },
   "defaults": {
