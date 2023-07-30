@@ -1,5 +1,21 @@
-.dfx
-node_modules
+# Mac OSX temporary files
+.DS_Store
+**/.DS_Store
+
+# dfx temporary files
+.dfx/
+
+# generated files
+src/declarations/
+
+# rust
+target/
+
+#if you add frontend code
+node_modules/
+
+# Env
 .env
+
+# Frontend dist
 dist
-target

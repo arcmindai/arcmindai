@@ -9,12 +9,11 @@
     "Canister"
   ],
   "scripts": {
-    "build": "webpack",
-    "prebuild": "dfx generate",
-    "start": "webpack serve --mode development --env development",
-    "deploy:local": "dfx deploy --network=local",
+    "candid": "cargo test",
+    "build": "dfx build",
+    "deploy": "dfx deploy",
     "deploy:ic": "dfx deploy --network=ic",
-    "generate": "dfx generate arcmindai_controller"
+    "declaration:generate": "dfx generate"
   },
   "dependencies": {
     "@dfinity/agent": "^0.18.1",
