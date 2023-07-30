@@ -6,7 +6,7 @@ use ic_cdk::{
         self,
         stable::{StableReader, StableWriter},
     },
-    init, post_upgrade, pre_upgrade, query,
+    init, post_upgrade, pre_upgrade, query, update,
 };
 use serde::Serialize;
 
@@ -35,10 +35,20 @@ fn init(owner: Option<Principal>) {
     });
 }
 
-#[query(guard = "assert_owner")]
+#[query]
 #[candid_method(query)]
-fn greet(name: String) -> String {
-    format!("Hello, {}!", name)
+pub fn get_owner() -> Option<Principal> {
+    STATE.with(|state| (*state.borrow()).owner)
+}
+
+#[update(guard = "assert_owner")]
+#[candid_method(update)]
+pub fn update_owner(new_owner: Principal) {
+    STATE.with(|state| {
+        *state.borrow_mut() = State {
+            owner: Some(new_owner),
+        };
+    });
 }
 
 #[pre_upgrade]
