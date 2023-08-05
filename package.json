@@ -1,11 +1,10 @@
 {
-  "name": "arcmindai_frontend",
-  "version": "0.2.0",
-  "description": "Internet Computer starter application",
+  "name": "arcmindai",
+  "version": "0.1.0",
+  "description": "Autonomous AI Agent powered by Internet Computer",
   "keywords": [
     "Internet Computer",
-    "Motoko",
-    "JavaScript",
+    "Rust",
     "Canister"
   ],
   "scripts": {
@@ -37,11 +36,5 @@
   },
   "engines": {
     "node": "^18"
-  },
-  "browserslist": [
-    "last 2 chrome version",
-    "last 2 firefox version",
-    "last 2 safari version",
-    "last 2 edge version"
-  ]
+  }
 }
