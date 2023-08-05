@@ -9,7 +9,7 @@ semantic search, enabling efficient and accurate task execution.
 
 ## Prerequisites
 
-- Install Rust Toolchain using rustup
+- Install Rust Toolchain using rustup  
   Follows https://www.rust-lang.org/tools/install
 - Install cargo-audit
 
@@ -17,7 +17,7 @@ semantic search, enabling efficient and accurate task execution.
 cargo install cargo-audit
 ```
 
-- Install dfx sdk
+- Install dfx sdk  
   Follow https://github.com/dfinity/sdk
 
 ## Quick Start
@@ -36,8 +36,8 @@ The provision script will deploy a `controller` canister and a `brain` canister 
 
 ## Diagrams
 
-See [Architecture](diagram/architecture.drawio)  
-See [Chain Of Thoughts](diagram/chainofthoughts.drawio)
+See [Architecture](diagram/architecture.png)  
+See [Chain Of Thoughts](diagram/chainofthoughts.png)
 
 ## Canisters
 
