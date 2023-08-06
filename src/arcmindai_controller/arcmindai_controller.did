@@ -1,4 +1,6 @@
-service : (opt principal) -> {
+service : (opt principal, opt principal) -> {
+  ask : (text) -> (text);
+  get_brain_canister : () -> (opt principal) query;
   get_owner : () -> (opt principal) query;
   update_owner : (principal) -> ();
 }
