@@ -1,6 +1,7 @@
 name: Backend
 
 on:
+  workflow_dispatch:
   push:
     branches: ['dev', 'main']
   pull_request:
@@ -14,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - uses: Swatinem/rust-cache@v2
       - name: Install Rust toolchain
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
