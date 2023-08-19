@@ -141,14 +141,12 @@ fn transform(args: TransformArgs) -> HttpResponse {
             .expect("Transformed response is not UTF-8 encoded.");
         println!("res_str = {:?}", res_str);
         let json_str = res_str.replace("\n", "");
-        // let json_str4 = json_str3.replace("(", "");
 
         ic_cdk::api::print(format!("JSON str = {:?}", json_str));
 
         let r: OpenAIResult = serde_json::from_str(json_str.as_str()).unwrap();
         let content = &r.choices[0].message.content;
 
-        // res.body = args.response.body;
         res.body = content.as_bytes().to_vec();
     } else {
         ic_cdk::api::print(format!("Received an error from jsonropc: err = {:?}", args));
