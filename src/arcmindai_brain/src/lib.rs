@@ -61,6 +61,8 @@ async fn ask(question: String) -> String {
         },
     ];
 
+    // lower temperature = more predictable and deterministic response = less creative
+    // so that IC replicas can reach consensus on the response
     let request_body = json!({
         "model": gpt_model,
         "messages": [
@@ -69,7 +71,7 @@ async fn ask(question: String) -> String {
                 "content": question
             }
         ],
-        "temperature": 0.7
+        "temperature": 0.5
     });
 
     let json_utf8: Vec<u8> = request_body.to_string().into_bytes();
