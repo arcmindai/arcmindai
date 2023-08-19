@@ -1,7 +1,8 @@
 use std::{cell::RefCell, ops::Deref};
 
 use ic_cdk::api::management_canister::http_request::{
-    http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod,
+    http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, HttpResponse, TransformArgs,
+    TransformContext,
 };
 
 use candid::{candid_method, CandidType, Deserialize, Principal};
@@ -22,6 +23,7 @@ mod guards;
 pub struct State {
     pub owner: Option<Principal>,
     pub openai_api_key: String,
+    pub gpt_model: String,
 }
 
 // Mutable global state
@@ -30,14 +32,16 @@ thread_local! {
 }
 
 // ---------------------- ArcMind AI Agent ----------------------
-const OPENAI_HOST: &str = "api.openai.com";
-const OPENAI_URL: &str = "https://api.openai.com/v1/chat/completions";
+const OPENAI_HOST: &str = "openai-4gbndkvjta-uc.a.run.app";
+const OPENAI_URL: &str = "https://openai-4gbndkvjta-uc.a.run.app/openai";
 
 // entry function for user to ask questions
 #[update(guard = "assert_owner")]
 #[candid_method(update)]
 async fn ask(question: String) -> String {
     let openai_api_key = STATE.with(|state| (*state.borrow()).openai_api_key.clone());
+    let gpt_model = STATE.with(|state| (*state.borrow()).gpt_model.clone());
+
     let request_headers = vec![
         HttpHeader {
             name: "Host".to_string(),
@@ -58,7 +62,7 @@ async fn ask(question: String) -> String {
     ];
 
     let request_body = json!({
-        "model": "gpt-3.5-turbo",
+        "model": gpt_model,
         "messages": [
             {
                 "role": "user",
@@ -77,7 +81,7 @@ async fn ask(question: String) -> String {
         method: HttpMethod::POST,
         headers: request_headers,
         body: request_body,
-        transform: None,
+        transform: Some(TransformContext::new(transform, vec![])),
     };
 
     match http_request(request).await {
@@ -93,17 +97,76 @@ async fn ask(question: String) -> String {
     }
 }
 
+#[derive(serde::Serialize, Deserialize)]
+struct OpenAIResult {
+    id: String,
+    object: String,
+    created: u32,
+    model: String,
+    choices: Vec<OpenAIResultChoices>,
+    usage: OpenAIResultUsage,
+}
+
+#[derive(serde::Serialize, Deserialize)]
+struct OpenAIResultChoices {
+    index: u8,
+    message: OpenAIResultMessage,
+    finish_reason: String,
+}
+
+#[derive(serde::Serialize, Deserialize)]
+struct OpenAIResultMessage {
+    role: String,
+    content: String,
+}
+
+#[derive(serde::Serialize, Deserialize)]
+struct OpenAIResultUsage {
+    prompt_tokens: u32,
+    completion_tokens: u32,
+    total_tokens: u32,
+}
+
+#[query]
+fn transform(args: TransformArgs) -> HttpResponse {
+    let mut res = HttpResponse {
+        status: args.response.status.clone(),
+        ..Default::default()
+    };
+
+    if res.status == 200 {
+        let res_str = String::from_utf8(args.response.body.clone())
+            .expect("Transformed response is not UTF-8 encoded.");
+        println!("res_str = {:?}", res_str);
+        let json_str = res_str.replace("\n", "");
+        // let json_str4 = json_str3.replace("(", "");
+
+        ic_cdk::api::print(format!("JSON str = {:?}", json_str));
+
+        let r: OpenAIResult = serde_json::from_str(json_str.as_str()).unwrap();
+        let content = &r.choices[0].message.content;
+
+        // res.body = args.response.body;
+        res.body = content.as_bytes().to_vec();
+    } else {
+        ic_cdk::api::print(format!("Received an error from jsonropc: err = {:?}", args));
+    }
+
+    res
+}
+
 // ---------------------- Supporting Functions ----------------------
 
 // Controller canister must be created with principal
 #[init]
 #[candid_method(init)]
-fn init(owner: Option<Principal>, openai_api_key: String) {
+fn init(owner: Option<Principal>, openai_api_key: String, gpt_model: String) {
     let my_owner: Principal = owner.unwrap_or_else(|| api::caller());
     STATE.with(|state| {
         *state.borrow_mut() = State {
             owner: Some(my_owner),
             openai_api_key: openai_api_key,
+            gpt_model: gpt_model,
         };
     });
 }
@@ -119,9 +182,11 @@ pub fn get_owner() -> Option<Principal> {
 pub fn update_owner(new_owner: Principal) {
     STATE.with(|state| {
         let open_api_key = state.borrow().openai_api_key.clone();
+        let gpt_model = state.borrow().gpt_model.clone();
         *state.borrow_mut() = State {
             owner: Some(new_owner),
             openai_api_key: open_api_key,
+            gpt_model: gpt_model,
         };
     });
 }
