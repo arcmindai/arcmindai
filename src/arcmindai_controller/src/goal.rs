@@ -1,0 +1,37 @@
+use candid::{CandidType, Decode, Deserialize, Encode};
+use std::borrow::Cow;
+
+// Stable Structures
+use ic_stable_structures::{BoundedStorable, Storable};
+
+const MAX_VALUE_SIZE: u32 = 100;
+
+#[derive(CandidType, Deserialize)]
+pub enum GoalStatus {
+    Scheduled,
+    Running,
+    Complete,
+}
+
+// Goal Struct and Storable Trait
+#[derive(CandidType, Deserialize)]
+pub struct Goal {
+    pub goal: String,
+    pub result: Option<String>,
+    pub status: GoalStatus,
+}
+
+impl Storable for Goal {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        Cow::Owned(Encode!(self).unwrap())
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        Decode!(bytes.as_ref(), Self).unwrap()
+    }
+}
+
+impl BoundedStorable for Goal {
+    const MAX_SIZE: u32 = MAX_VALUE_SIZE;
+    const IS_FIXED_SIZE: bool = false;
+}

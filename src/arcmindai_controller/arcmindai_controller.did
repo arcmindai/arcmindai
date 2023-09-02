@@ -1,6 +1,11 @@
+type Goal = record { status : GoalStatus; result : opt text; goal : text };
+type GoalStatus = variant { Complete; Scheduled; Running };
 service : (opt principal, opt principal) -> {
   ask : (text) -> (text);
   get_brain_canister : () -> (opt principal) query;
+  get_goal : (nat64) -> (opt Goal) query;
   get_owner : () -> (opt principal) query;
+  insert_goal : (Goal) -> ();
+  save_result : (nat64, text) -> ();
   update_owner : (principal) -> ();
 }

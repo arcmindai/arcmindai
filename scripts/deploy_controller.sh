@@ -1,5 +1,5 @@
 # To deplopy locally, update IC_NETWORK to local. To deploy to ic, update IC_NETWORK to ic.
-IC_NETWORK=ic
+IC_NETWORK=local
 
 OwnerPrincipal=$(dfx identity --network $IC_NETWORK get-principal)
 BrainPrincipal=$(dfx canister --network $IC_NETWORK id arcmindai_brain)
