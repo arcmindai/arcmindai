@@ -4,9 +4,9 @@ use std::borrow::Cow;
 // Stable Structures
 use ic_stable_structures::{BoundedStorable, Storable};
 
-const MAX_VALUE_SIZE: u32 = 100;
+const MAX_VALUE_SIZE: u32 = 1024 * 1024;
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, PartialEq)]
 pub enum GoalStatus {
     Scheduled,
     Running,

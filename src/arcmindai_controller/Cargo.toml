@@ -15,6 +15,7 @@ ic-cdk-macros = "0.6.0"
 serde = "1.0.152"
 ciborium = "0.2"
 ic-stable-structures = "0.5.6"
+ic-cdk-timers = "0.1.0"
 
 [build-dependencies]
 candid = "0.8"
