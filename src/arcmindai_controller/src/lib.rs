@@ -1,10 +1,14 @@
 use candid::Deserialize;
-use std::cell::RefCell;
+use std::{
+    cell::RefCell,
+    sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
+};
 
 // Stable Structures
-use ic_stable_structures::{writer::Writer, Memory as _, StableVec};
-
 use ic_cdk::api::time;
+use ic_cdk_timers::TimerId;
+use ic_stable_structures::{writer::Writer, Memory as _, StableVec};
 
 mod memory;
 use memory::Memory;
@@ -23,6 +27,8 @@ use serde::Serialize;
 
 use crate::guards::assert_owner;
 mod guards;
+
+const MIN_INTERVAL_SECS: u64 = 10;
 
 #[derive(Serialize, Deserialize)]
 pub struct State {
@@ -46,11 +52,19 @@ impl Default for State {
 // Mutable global state
 thread_local! {
     static STATE: RefCell<State> = RefCell::default();
+
+    /// The global vector to keep multiple timer IDs.
+    static TIMER_IDS: RefCell<Vec<TimerId>> = RefCell::new(Vec::new());
 }
 
 fn init_stable_data() -> StableVec<Goal, Memory> {
     StableVec::init(crate::memory::get_stable_vec_memory()).expect("call to init_stable_data fails")
 }
+
+/// Initial canister balance to track the cycles usage.
+static INITIAL_CANISTER_BALANCE: AtomicU64 = AtomicU64::new(0);
+/// Canister cycles usage tracked in the periodic task.
+static CYCLES_USED: AtomicU64 = AtomicU64::new(0);
 
 // ---------------------- ArcMind AI Agent ----------------------
 // entry function for user to ask questions
@@ -63,6 +77,32 @@ async fn ask(question: String) -> String {
         .expect("call to ask failed");
 
     return result;
+}
+
+async fn process_new_goals() {
+    let len = STATE.with(|s| s.borrow().stable_data.len());
+    let mut i = 0;
+
+    while i < len {
+        let goal: Option<Goal> = STATE.with(|s| s.borrow().stable_data.get(i));
+        match goal {
+            Some(my_goal) => {
+                if my_goal.status == GoalStatus::Scheduled {
+                    ic_cdk::println!("Processing Goal {}", i);
+                    let question = my_goal.goal.clone();
+                    let result: String = ask(question).await;
+                    save_result(i, result);
+                }
+            }
+            None => {
+                ic_cdk::println!("Goal not found: {}", i);
+            }
+        }
+
+        i = i + 1;
+    }
+
+    track_cycles_used();
 }
 
 // Retrieves goal from stable data
@@ -131,6 +171,8 @@ fn init(owner: Option<Principal>, brain_canister: Option<Principal>) {
             stable_data: init_stable_data(),
         };
     });
+
+    start_with_interval_secs(MIN_INTERVAL_SECS);
 }
 
 #[query]
@@ -188,6 +230,47 @@ fn post_upgrade() {
     // Deserialize and set the state.
     let state = ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
     STATE.with(|s| *s.borrow_mut() = state);
+
+    // Start the periodic task
+    start_with_interval_secs(MIN_INTERVAL_SECS);
+}
+
+// ---------------------- Periodic Task Timer ----------------------------------------------
+
+#[update]
+fn start_with_interval_secs(secs: u64) {
+    let secs = Duration::from_secs(secs);
+    ic_cdk::println!(
+        "Controller canister: checking for new scheduled goal with {secs:?} interval..."
+    );
+    // Schedule a new periodic task to increment the counter.
+    // ic_cdk_timers::set_timer_interval(secs, periodic_task);
+
+    // To drive an async function to completion inside the timer handler,
+    // use `ic_cdk::spawn()`, for example:
+    let timer_id = ic_cdk_timers::set_timer_interval(secs, || ic_cdk::spawn(process_new_goals()));
+
+    // Add the timer ID to the global vector.
+    TIMER_IDS.with(|timer_ids| timer_ids.borrow_mut().push(timer_id));
+}
+
+// ---------------------- Cycles Usage Tracking  --------------------------------------
+/// Tracks the amount of cycles used for the periodic task.
+fn track_cycles_used() {
+    // Update the `INITIAL_CANISTER_BALANCE` if needed.
+    let current_canister_balance = ic_cdk::api::canister_balance();
+    INITIAL_CANISTER_BALANCE.fetch_max(current_canister_balance, Ordering::Relaxed);
+    // Store the difference between the initial and the current balance.
+    let cycles_used = INITIAL_CANISTER_BALANCE.load(Ordering::Relaxed) - current_canister_balance;
+    CYCLES_USED.store(cycles_used, Ordering::Relaxed);
+}
+
+/// Returns the amount of cycles used since the beginning of the execution.
+///
+/// Example usage: `dfx canister call timer cycles_used`
+#[query]
+fn cycles_used() -> u64 {
+    CYCLES_USED.load(Ordering::Relaxed)
 }
 
 // ---------------------- Candid declarations did file generator ----------------------
