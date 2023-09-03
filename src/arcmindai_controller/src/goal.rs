@@ -13,12 +13,16 @@ pub enum GoalStatus {
     Complete,
 }
 
+pub type Timestamp = u64;
+
 // Goal Struct and Storable Trait
 #[derive(CandidType, Deserialize)]
 pub struct Goal {
     pub goal: String,
     pub result: Option<String>,
     pub status: GoalStatus,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 impl Storable for Goal {
