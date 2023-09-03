@@ -4,11 +4,13 @@ use std::cell::RefCell;
 // Stable Structures
 use ic_stable_structures::{writer::Writer, Memory as _, StableVec};
 
+use ic_cdk::api::time;
+
 mod memory;
 use memory::Memory;
 
 mod goal;
-use goal::{Goal, GoalStatus};
+use goal::{Goal, GoalStatus, Timestamp};
 
 // Candid
 use candid::{candid_method, Principal};
@@ -73,27 +75,47 @@ fn get_goal(key: u64) -> Option<Goal> {
 // Inserts a goal into the vector stable data
 #[update(guard = "assert_owner")]
 #[candid_method(update)]
-fn insert_goal(value: Goal) {
+fn insert_goal(goal_string: String) {
+    let now: Timestamp = time();
+    let new_goal: Goal = Goal {
+        goal: goal_string,
+        status: GoalStatus::Scheduled,
+        created_at: now,
+        updated_at: now,
+        result: None,
+    };
+
     STATE.with(|s| {
         s.borrow_mut()
             .stable_data
-            .push(&value)
+            .push(&new_goal)
             .expect("call to insert_goal failed")
     });
 }
 
-// Complete a goal with result
+// Complete a goal with result, called by controller itself
+// TODO - remove candid method once main loop is implemented
 #[update]
 #[candid_method(update)]
 fn save_result(key: u64, result: String) {
-    let my_goal: Goal = STATE.with(|s| s.borrow().stable_data.get(key)).unwrap();
-    let updated_goal: Goal = Goal {
-        result: Some(result),
-        status: GoalStatus::Complete,
-        ..my_goal
-    };
+    let opt_goal: Option<Goal> = STATE.with(|s| s.borrow().stable_data.get(key));
 
-    STATE.with(|s| s.borrow_mut().stable_data.set(key, &updated_goal));
+    match opt_goal {
+        Some(my_goal) => {
+            let now: Timestamp = time();
+            let updated_goal: Goal = Goal {
+                result: Some(result),
+                status: GoalStatus::Complete,
+                updated_at: now,
+                ..my_goal
+            };
+
+            STATE.with(|s| s.borrow_mut().stable_data.set(key, &updated_goal));
+        }
+        None => {
+            ic_cdk::trap("Goal not found.");
+        }
+    }
 }
 
 // ---------------------- Supporting Functions ----------------------
