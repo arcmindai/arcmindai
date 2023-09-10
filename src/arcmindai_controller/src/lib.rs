@@ -68,7 +68,7 @@ static CYCLES_USED: AtomicU64 = AtomicU64::new(0);
 
 // ---------------------- ArcMind AI Agent ----------------------
 // entry function for user to ask questions
-#[update(guard = "assert_owner")]
+#[update]
 #[candid_method(update)]
 async fn ask(question: String) -> String {
     let brain_canister: Principal = STATE.with(|state| (*state.borrow()).brain_canister.unwrap());

@@ -4,7 +4,10 @@
       "candid": "src/arcmindai_controller/arcmindai_controller.did",
       "package": "arcmindai_controller",
       "type": "rust",
-      "optimize": "cycles"
+      "optimize": "cycles",
+      "declarations": {
+        "node_compatibility": true
+      }
     },
     "arcmindai_brain": {
       "candid": "src/arcmindai_brain/arcmindai_brain.did",
