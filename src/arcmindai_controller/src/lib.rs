@@ -5,8 +5,13 @@ use std::{
     time::Duration,
 };
 
+use time::format_description;
+use time::OffsetDateTime;
+
 // Stable Structures
 use ic_cdk::api::time;
+extern crate tinytemplate;
+
 use ic_cdk_timers::TimerId;
 use ic_stable_structures::{writer::Writer, Memory as _, StableVec};
 
@@ -15,6 +20,21 @@ use memory::Memory;
 
 mod goal;
 use goal::{Goal, GoalStatus, Timestamp};
+
+mod prompts;
+use prompts::PROMPT;
+
+use tinytemplate::TinyTemplate;
+
+// use chrono::{NaiveDateTime, TimeZone, Utc};
+
+#[derive(Serialize)]
+struct Context {
+    goal: String,
+    current_date_time: String,
+    response_format: String,
+    past_events: String,
+}
 
 // Candid
 use candid::{candid_method, Principal};
@@ -25,7 +45,7 @@ use ic_cdk::{
 };
 use serde::Serialize;
 
-use crate::guards::assert_owner;
+use crate::{guards::assert_owner, prompts::RESPONSE_FORMAT};
 mod guards;
 
 const MIN_INTERVAL_SECS: u64 = 10;
@@ -68,6 +88,7 @@ static CYCLES_USED: AtomicU64 = AtomicU64::new(0);
 
 // ---------------------- ArcMind AI Agent ----------------------
 // entry function for user to ask questions
+// TODO - add owner check back when full ArcMind AI is ready
 #[update]
 #[candid_method(update)]
 async fn ask(question: String) -> String {
@@ -89,8 +110,39 @@ async fn process_new_goals() {
             Some(my_goal) => {
                 if my_goal.status == GoalStatus::Scheduled {
                     ic_cdk::println!("Processing Goal {}", i);
+
                     let question = my_goal.goal.clone();
-                    let result: String = ask(question).await;
+
+                    let mut tt = TinyTemplate::new();
+                    tt.add_template("prompt", PROMPT).unwrap();
+
+                    let now_epoch: Timestamp = time();
+                    let now =
+                        OffsetDateTime::from_unix_timestamp_nanos(now_epoch.try_into().unwrap())
+                            .unwrap();
+                    let format =
+                        format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]")
+                            .unwrap();
+                    let datetime_string = now.format(&format).unwrap();
+
+                    let context = Context {
+                        goal: question,
+                        current_date_time: datetime_string,
+                        response_format: RESPONSE_FORMAT.to_string(),
+                        past_events: "".to_string(),
+                    };
+
+                    let rendered = tt.render("prompt", &context).unwrap();
+                    ic_cdk::println!("Initial Prompt:\n{}", rendered);
+
+                    // update goal status to running to prevent duplicate processing
+                    let updated_goal: Goal = Goal {
+                        status: GoalStatus::Running,
+                        ..my_goal
+                    };
+                    STATE.with(|s| s.borrow_mut().stable_data.set(i, &updated_goal));
+
+                    let result: String = ask(rendered).await;
                     save_result(i, result);
                 }
             }
@@ -106,6 +158,7 @@ async fn process_new_goals() {
 }
 
 // Retrieves goal from stable data
+// TODO - add owner check back when full ArcMind AI is ready
 #[query]
 #[candid_method(query)]
 fn get_goal(key: u64) -> Option<Goal> {
@@ -113,7 +166,8 @@ fn get_goal(key: u64) -> Option<Goal> {
 }
 
 // Inserts a goal into the vector stable data
-#[update(guard = "assert_owner")]
+// TODO - add owner check back when full ArcMind AI is ready
+#[update]
 #[candid_method(update)]
 fn insert_goal(goal_string: String) {
     let now: Timestamp = time();
