@@ -18,13 +18,28 @@ use serde::Serialize;
 use serde_json::json;
 
 use html2text;
+use urlencoding::encode;
 
 use crate::guards::assert_owner;
 mod guards;
 
+use tinytemplate::TinyTemplate;
+
+mod config;
+use config::GOOGLE_SEARCH_URL;
+
 #[derive(Default, CandidType, Serialize, Deserialize)]
 pub struct State {
     pub owner: Option<Principal>,
+    pub google_api_key: String,
+    pub search_engine_id: String,
+}
+
+#[derive(Serialize)]
+struct GoogleSearchContext {
+    google_api_key: String,
+    search_engine_id: String,
+    query: String,
 }
 
 // Mutable global state
@@ -37,21 +52,11 @@ thread_local! {
 #[update]
 #[candid_method(update)]
 async fn browse_website(url: String) -> String {
-    let request_headers = vec![
-        HttpHeader {
-            name: "User-Agent".to_string(),
-            value: "ArcMind AI Agent".to_string(),
-        },
-        HttpHeader {
-            name: "Content-Type".to_string(),
-            value: "application/json".to_string(),
-        },
-    ];
+    let request_headers = vec![HttpHeader {
+        name: "User-Agent".to_string(),
+        value: "ArcMind AI Agent".to_string(),
+    }];
 
-    let request_body = json!({});
-
-    let json_utf8: Vec<u8> = request_body.to_string().into_bytes();
-    let request_body: Option<Vec<u8>> = Some(json_utf8);
     ic_cdk::api::print(format!(
         "\n ------------- Web Scrap URL -------------\n{:?}",
         url
@@ -60,9 +65,61 @@ async fn browse_website(url: String) -> String {
     let request = CanisterHttpRequestArgument {
         url: url.clone(),
         max_response_bytes: None,
-        method: HttpMethod::POST,
+        method: HttpMethod::GET,
         headers: request_headers,
-        body: request_body,
+        body: None,
+        transform: Some(TransformContext::new(transform, vec![])),
+    };
+
+    match http_request(request).await {
+        Ok((response,)) => {
+            let result = String::from_utf8(response.body)
+                .expect("Transformed response is not UTF-8 encoded.");
+            result
+        }
+        Err((r, m)) => {
+            let message = format!("The ask resulted into error. RejectionCode: {r:?}, Error: {m}");
+            message
+        }
+    }
+}
+
+// entry function for user to perform google search on a query
+// TODO - add owner check back when full ArcMind AI is ready
+#[update]
+#[candid_method(update)]
+async fn google_search(query: String) -> String {
+    let request_headers = vec![HttpHeader {
+        name: "User-Agent".to_string(),
+        value: "ArcMind AI Agent".to_string(),
+    }];
+
+    ic_cdk::api::print(format!(
+        "\n ------------- Google Search -------------\n{:?}",
+        query
+    ));
+
+    let mut tt = TinyTemplate::new();
+    tt.add_template("google_search", GOOGLE_SEARCH_URL).unwrap();
+
+    let google_api_key = STATE.with(|state| (*state.borrow()).google_api_key.clone());
+    let search_engine_id = STATE.with(|state| (*state.borrow()).search_engine_id.clone());
+    let url_encoded_query = encode(query.as_str());
+
+    let context = GoogleSearchContext {
+        google_api_key: google_api_key.to_string(),
+        search_engine_id: search_engine_id.to_string(),
+        query: url_encoded_query.to_string(),
+    };
+
+    let full_url = tt.render("google_search", &context).unwrap();
+
+    let request = CanisterHttpRequestArgument {
+        url: full_url,
+        max_response_bytes: None,
+        method: HttpMethod::GET,
+        headers: request_headers,
+        body: None,
         transform: Some(TransformContext::new(transform, vec![])),
     };
 
@@ -89,17 +146,44 @@ fn transform(args: TransformArgs) -> HttpResponse {
     if res.status == 200 {
         let mut res_str = String::from_utf8(args.response.body.clone())
             .expect("Transformed response is not UTF-8 encoded.");
-        res_str = html2text::from_read(res_str.as_bytes(), 80);
-        ic_cdk::api::print(format!(
-            "\n ------------- HTML2Text -------------\n{:?}",
-            res_str
-        ));
+        // check if res_str is JSON
+        let res_json = serde_json::from_str::<serde_json::Value>(&res_str);
+        if res_json.is_err() {
+            // If not JSON, convert HTML to text for browse_website response
+            res_str = html2text::from_read(res_str.as_bytes(), 80);
+            res.body = res_str.as_bytes().to_vec();
+            return res;
+        }
 
+        // Assume this is Google Search result, convert to JSON object
+        // extract items[].title, link, snippet into JSON array object
+        let mut res_json_mut = res_json.unwrap();
+        let res_items = res_json_mut["items"].as_array_mut().unwrap();
+        let mut res_items_arr = Vec::new();
+        for item in res_items.iter_mut() {
+            let item_json = json!({
+                "title": item["title"],
+                "link": item["link"],
+                "snippet": item["snippet"]
+            });
+            res_items_arr.push(item_json);
+        }
+
+        // convert JSON array object to string
+        res_str = serde_json::to_string(&res_items_arr).unwrap();
         res.body = res_str.as_bytes().to_vec();
-    } else {
-        ic_cdk::api::print(format!("Received an error from jsonropc: err = {:?}", args));
+        return res;
     }
 
+    // Error status handling
+    let res_str = String::from_utf8(args.response.body.clone())
+        .expect("Transformed response is not UTF-8 encoded.");
+    ic_cdk::api::print(format!(
+        "\n ------------- Response -------------\n{:?}",
+        res_str
+    ));
+
+    ic_cdk::api::print(format!("\n\nReceived an error from transform: {:?}", args));
     res
 }
 
@@ -108,11 +192,13 @@ fn transform(args: TransformArgs) -> HttpResponse {
 // Controller canister must be created with principal
 #[init]
 #[candid_method(init)]
-fn init(owner: Option<Principal>) {
+fn init(owner: Option<Principal>, google_api_key: String, search_engine_id: String) {
     let my_owner: Principal = owner.unwrap_or_else(|| api::caller());
     STATE.with(|state| {
         *state.borrow_mut() = State {
             owner: Some(my_owner),
+            google_api_key: google_api_key,
+            search_engine_id: search_engine_id,
         };
     });
 }
@@ -129,6 +215,8 @@ pub fn update_owner(new_owner: Principal) {
     STATE.with(|state| {
         *state.borrow_mut() = State {
             owner: Some(new_owner),
+            google_api_key: state.borrow().google_api_key.clone(),
+            search_engine_id: state.borrow().search_engine_id.clone(),
         };
     });
 }
