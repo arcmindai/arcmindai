@@ -88,7 +88,7 @@ async fn browse_website(url: String) -> String {
 // TODO - add owner check back when full ArcMind AI is ready
 #[update]
 #[candid_method(update)]
-async fn google_search(query: String) -> String {
+async fn google(query: String) -> String {
     let request_headers = vec![HttpHeader {
         name: "User-Agent".to_string(),
         value: "ArcMind AI Agent".to_string(),
