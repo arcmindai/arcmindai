@@ -12,10 +12,12 @@ crate-type = ["cdylib"]
 candid = "0.8"
 ic-cdk = "0.7"
 ic-cdk-macros = "0.6.0"
-serde = "1.0.152"
+serde = { version = "1.0.152", features = ["derive"]}
 ciborium = "0.2"
 ic-stable-structures = "0.5.6"
 ic-cdk-timers = "0.1.0"
+tinytemplate = "1.2.1"
+time = { version = "0.3.28", features = ["macros", "formatting"] }
 
 [build-dependencies]
 candid = "0.8"
