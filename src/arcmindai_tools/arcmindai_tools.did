@@ -1,0 +1,5 @@
+service : (opt principal) -> {
+  browse_website : (text) -> (text);
+  get_owner : () -> (opt principal) query;
+  update_owner : (principal) -> ();
+}

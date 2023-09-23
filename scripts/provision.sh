@@ -29,3 +29,9 @@ dfx canister --network $IC_NETWORK call arcmindai_brain update_owner "(principal
 
 echo Brain Owner:
 dfx canister --network $IC_NETWORK call arcmindai_brain get_owner
+
+# Deploy tools canister
+echo Deploying tools canister with owner $OwnerPrincipal
+dfx deploy --network $IC_NETWORK arcmindai_tools --argument "(opt principal \"$OwnerPrincipal\")"
+
+ToolsPrincipal=$(dfx canister --network $IC_NETWORK id arcmindai_tools)

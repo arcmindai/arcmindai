@@ -14,6 +14,12 @@
       "package": "arcmindai_brain",
       "type": "rust",
       "optimize": "cycles"
+    },
+    "arcmindai_tools": {
+      "candid": "src/arcmindai_tools/arcmindai_tools.did",
+      "package": "arcmindai_tools",
+      "type": "rust",
+      "optimize": "cycles"
     }
   },
   "defaults": {
