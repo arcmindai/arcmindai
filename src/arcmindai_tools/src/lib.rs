@@ -20,8 +20,8 @@ use serde_json::json;
 use html2text;
 use urlencoding::encode;
 
-use crate::guards::assert_owner;
 mod guards;
+use guards::assert_owner;
 
 use tinytemplate::TinyTemplate;
 

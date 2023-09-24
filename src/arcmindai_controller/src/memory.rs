@@ -7,7 +7,8 @@ const UPGRADES: MemoryId = MemoryId::new(0);
 
 // A memory for the StableVec we're using. A new memory should be created for
 // every additional stable structure.
-const STABLE_VEC: MemoryId = MemoryId::new(1);
+const STABLE_GOAL_VEC: MemoryId = MemoryId::new(1);
+const STABLE_CHATHISTORY_VEC: MemoryId = MemoryId::new(2);
 
 pub type Memory = VirtualMemory<DefaultMemoryImpl>;
 
@@ -22,6 +23,10 @@ pub fn get_upgrades_memory() -> Memory {
     MEMORY_MANAGER.with(|m| m.borrow().get(UPGRADES))
 }
 
-pub fn get_stable_vec_memory() -> Memory {
-    MEMORY_MANAGER.with(|m| m.borrow().get(STABLE_VEC))
+pub fn get_stable_goal_vec_memory() -> Memory {
+    MEMORY_MANAGER.with(|m| m.borrow().get(STABLE_GOAL_VEC))
+}
+
+pub fn get_stable_chathistory_vec_memory() -> Memory {
+    MEMORY_MANAGER.with(|m| m.borrow().get(STABLE_CHATHISTORY_VEC))
 }

@@ -1,3 +1,9 @@
+type ChatHistory = record {
+  content : text;
+  role : ChatRole;
+  created_at : nat64;
+};
+type ChatRole = variant { System; User; ArcMind };
 type Goal = record {
   status : GoalStatus;
   result : opt text;
@@ -9,6 +15,7 @@ type GoalStatus = variant { Complete; Scheduled; Running };
 service : (opt principal, opt principal) -> {
   ask : (text) -> (text);
   get_brain_canister : () -> (opt principal) query;
+  get_chathistory : () -> (vec ChatHistory) query;
   get_goal : (nat64) -> (opt Goal) query;
   get_owner : () -> (opt principal) query;
   insert_goal : (text) -> ();
