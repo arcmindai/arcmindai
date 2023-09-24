@@ -15,26 +15,13 @@ extern crate tinytemplate;
 use ic_cdk_timers::TimerId;
 use ic_stable_structures::{writer::Writer, Memory as _, StableVec};
 
-mod memory;
-use memory::Memory;
-
-mod goal;
-use goal::{Goal, GoalStatus, Timestamp};
+mod datatype;
+use datatype::{ChatHistory, ChatRole, Goal, GoalStatus, PromptContext, Timestamp};
 
 mod prompts;
-use prompts::PROMPT;
+use prompts::{PROMPT, RESPONSE_FORMAT};
 
 use tinytemplate::TinyTemplate;
-
-// use chrono::{NaiveDateTime, TimeZone, Utc};
-
-#[derive(Serialize)]
-struct Context {
-    goal: String,
-    current_date_time: String,
-    response_format: String,
-    past_events: String,
-}
 
 // Candid
 use candid::{candid_method, Principal};
@@ -45,8 +32,11 @@ use ic_cdk::{
 };
 use serde::Serialize;
 
-use crate::{guards::assert_owner, prompts::RESPONSE_FORMAT};
 mod guards;
+use guards::assert_owner;
+
+mod memory;
+use memory::Memory;
 
 const MIN_INTERVAL_SECS: u64 = 10;
 
@@ -55,8 +45,11 @@ pub struct State {
     pub owner: Option<Principal>,
     pub brain_canister: Option<Principal>,
 
-    #[serde(skip, default = "init_stable_data")]
-    stable_data: StableVec<Goal, Memory>,
+    #[serde(skip, default = "init_stable_goal_data")]
+    stable_goal_data: StableVec<Goal, Memory>,
+
+    #[serde(skip, default = "init_stable_chathistory_data")]
+    stable_chathistory_data: StableVec<ChatHistory, Memory>,
 }
 
 impl Default for State {
@@ -64,7 +57,8 @@ impl Default for State {
         Self {
             owner: None,
             brain_canister: None,
-            stable_data: init_stable_data(),
+            stable_goal_data: init_stable_goal_data(),
+            stable_chathistory_data: init_stable_chathistory_data(),
         }
     }
 }
@@ -77,8 +71,14 @@ thread_local! {
     static TIMER_IDS: RefCell<Vec<TimerId>> = RefCell::new(Vec::new());
 }
 
-fn init_stable_data() -> StableVec<Goal, Memory> {
-    StableVec::init(crate::memory::get_stable_vec_memory()).expect("call to init_stable_data fails")
+fn init_stable_goal_data() -> StableVec<Goal, Memory> {
+    StableVec::init(memory::get_stable_goal_vec_memory())
+        .expect("call to init_stable_goal_data fails")
+}
+
+fn init_stable_chathistory_data() -> StableVec<ChatHistory, Memory> {
+    StableVec::init(memory::get_stable_chathistory_vec_memory())
+        .expect("call to init_stable_chathistory_data fails")
 }
 
 /// Initial canister balance to track the cycles usage.
@@ -101,11 +101,11 @@ async fn ask(question: String) -> String {
 }
 
 async fn process_new_goals() {
-    let len = STATE.with(|s| s.borrow().stable_data.len());
+    let len = STATE.with(|s| s.borrow().stable_goal_data.len());
     let mut i = 0;
 
     while i < len {
-        let goal: Option<Goal> = STATE.with(|s| s.borrow().stable_data.get(i));
+        let goal: Option<Goal> = STATE.with(|s| s.borrow().stable_goal_data.get(i));
         match goal {
             Some(my_goal) => {
                 if my_goal.status == GoalStatus::Scheduled {
@@ -125,25 +125,22 @@ async fn process_new_goals() {
                             .unwrap();
                     let datetime_string = now.format(&format).unwrap();
 
-                    let context = Context {
+                    let context = PromptContext {
                         goal: question,
                         current_date_time: datetime_string,
                         response_format: RESPONSE_FORMAT.to_string(),
                         past_events: "".to_string(),
                     };
 
-                    let rendered = tt.render("prompt", &context).unwrap();
-                    ic_cdk::println!("Initial Prompt:\n{}", rendered);
+                    let full_prompt = tt.render("prompt", &context).unwrap();
+                    ic_cdk::println!("Initial Prompt:\n{}", full_prompt);
 
                     // update goal status to running to prevent duplicate processing
-                    let updated_goal: Goal = Goal {
-                        status: GoalStatus::Running,
-                        ..my_goal
-                    };
-                    STATE.with(|s| s.borrow_mut().stable_data.set(i, &updated_goal));
+                    update_goal_status(i, my_goal, GoalStatus::Running);
 
-                    let result: String = ask(rendered).await;
-                    save_result(i, result);
+                    let result: String = ask(full_prompt).await;
+                    insert_chat(ChatRole::ArcMind, result.clone());
+                    save_result(i, result.clone());
                 }
             }
             None => {
@@ -162,17 +159,25 @@ async fn process_new_goals() {
 #[query]
 #[candid_method(query)]
 fn get_goal(key: u64) -> Option<Goal> {
-    STATE.with(|s| s.borrow().stable_data.get(key))
+    STATE.with(|s| s.borrow().stable_goal_data.get(key))
 }
 
-// Inserts a goal into the vector stable data
+// Retrieves chathistory from stable data
+// TODO - add owner check back when full ArcMind AI is ready
+#[query]
+#[candid_method(query)]
+fn get_chathistory() -> Vec<ChatHistory> {
+    STATE.with(|s| s.borrow().stable_chathistory_data.iter().collect())
+}
+
+// Inserts a goal into the stable data Goal Vec and ChatHistory Vec
 // TODO - add owner check back when full ArcMind AI is ready
 #[update]
 #[candid_method(update)]
 fn insert_goal(goal_string: String) {
     let now: Timestamp = time();
-    let new_goal: Goal = Goal {
-        goal: goal_string,
+    let new_goal = Goal {
+        goal: goal_string.clone(),
         status: GoalStatus::Scheduled,
         created_at: now,
         updated_at: now,
@@ -181,10 +186,20 @@ fn insert_goal(goal_string: String) {
 
     STATE.with(|s| {
         s.borrow_mut()
-            .stable_data
+            .stable_goal_data
             .push(&new_goal)
             .expect("call to insert_goal failed")
     });
+
+    insert_chat(ChatRole::User, goal_string.clone());
+}
+
+fn update_goal_status(index: u64, goal: Goal, status: GoalStatus) {
+    let updated_goal: Goal = Goal {
+        status: status,
+        ..goal
+    };
+    STATE.with(|s| s.borrow_mut().stable_goal_data.set(index, &updated_goal));
 }
 
 // Complete a goal with result, called by controller itself
@@ -192,7 +207,7 @@ fn insert_goal(goal_string: String) {
 #[update]
 #[candid_method(update)]
 fn save_result(key: u64, result: String) {
-    let opt_goal: Option<Goal> = STATE.with(|s| s.borrow().stable_data.get(key));
+    let opt_goal: Option<Goal> = STATE.with(|s| s.borrow().stable_goal_data.get(key));
 
     match opt_goal {
         Some(my_goal) => {
@@ -204,12 +219,29 @@ fn save_result(key: u64, result: String) {
                 ..my_goal
             };
 
-            STATE.with(|s| s.borrow_mut().stable_data.set(key, &updated_goal));
+            STATE.with(|s| s.borrow_mut().stable_goal_data.set(key, &updated_goal));
         }
         None => {
             ic_cdk::trap("Goal not found.");
         }
     }
+}
+
+// Insert chat, called by controller itself
+fn insert_chat(role: ChatRole, content: String) {
+    let now: Timestamp = time();
+    let new_chat = ChatHistory {
+        content: content,
+        role: role,
+        created_at: now,
+    };
+
+    STATE.with(|s| {
+        s.borrow_mut()
+            .stable_chathistory_data
+            .push(&new_chat)
+            .expect("call to insert_chat failed")
+    });
 }
 
 // ---------------------- Supporting Functions ----------------------
@@ -222,7 +254,8 @@ fn init(owner: Option<Principal>, brain_canister: Option<Principal>) {
         *state.borrow_mut() = State {
             owner: Some(my_owner),
             brain_canister: brain_canister,
-            stable_data: init_stable_data(),
+            stable_goal_data: init_stable_goal_data(),
+            stable_chathistory_data: init_stable_chathistory_data(),
         };
     });
 
@@ -330,7 +363,7 @@ fn cycles_used() -> u64 {
 // ---------------------- Candid declarations did file generator ----------------------
 #[cfg(test)]
 mod tests {
-    use crate::goal::Goal;
+    use crate::datatype::{ChatHistory, Goal};
     use candid::{export_service, Principal};
 
     #[test]

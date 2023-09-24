@@ -16,8 +16,8 @@ use ic_cdk::{
 use serde::Serialize;
 use serde_json::json;
 
-use crate::guards::assert_owner;
 mod guards;
+use guards::assert_owner;
 
 #[derive(Default, CandidType, Serialize, Deserialize)]
 pub struct State {
