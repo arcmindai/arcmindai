@@ -16,8 +16,12 @@ use ic_cdk::{
 use serde::Serialize;
 use serde_json::json;
 
+use ic_cdk::api::time;
+
 mod guards;
 use guards::assert_owner;
+
+type Timestamp = u64;
 
 #[derive(Default, CandidType, Serialize, Deserialize)]
 pub struct State {
@@ -33,7 +37,7 @@ thread_local! {
 
 // ---------------------- ArcMind AI Agent ----------------------
 const OPENAI_HOST: &str = "openai-4gbndkvjta-uc.a.run.app";
-const OPENAI_URL: &str = "https://openai-4gbndkvjta-uc.a.run.app/openai";
+const OPENAI_URL: &str = "https://openai-4gbndkvjta-uc.a.run.app";
 
 // entry function for user to ask questions
 #[update(guard = "assert_owner")]
@@ -71,14 +75,21 @@ async fn ask(question: String) -> String {
                 "content": question
             }
         ],
-        "temperature": 0.5
+        "temperature": 0.7
     });
 
     let json_utf8: Vec<u8> = request_body.to_string().into_bytes();
     let request_body: Option<Vec<u8>> = Some(json_utf8);
+    let canister_id = api::id().to_text();
+    // extract the first 5 characters from the request_id
+    let init_canister_id = canister_id.chars().take(5).collect::<String>();
+    let now: Timestamp = time();
+    let request_id = format!("{}-{}", init_canister_id, now);
 
+    // add requestId to OPENAI_URL
+    let final_url = OPENAI_URL.to_string() + "?requestId=" + &request_id;
     let request = CanisterHttpRequestArgument {
-        url: OPENAI_URL.to_string(),
+        url: final_url.to_string(),
         max_response_bytes: None,
         method: HttpMethod::POST,
         headers: request_headers,
