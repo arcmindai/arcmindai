@@ -28,6 +28,8 @@ use tinytemplate::TinyTemplate;
 mod config;
 use config::GOOGLE_SEARCH_URL;
 
+const BROWSE_WEBSITE_PROXY_URL: &str = "https://browsewebsite-4gbndkvjta-uc.a.run.app";
+
 #[derive(Default, CandidType, Serialize, Deserialize)]
 pub struct State {
     pub owner: Option<Principal>,
@@ -57,13 +59,16 @@ async fn browse_website(url: String) -> String {
         value: "ArcMind AI Agent".to_string(),
     }];
 
+    let url_encoded_weburl = encode(url.as_str());
+    let full_url = BROWSE_WEBSITE_PROXY_URL.to_string() + "/?webURL=" + &url_encoded_weburl;
+
     ic_cdk::api::print(format!(
-        "\n ------------- Web Scrap URL -------------\n{:?}",
-        url
+        "\n ------------- Browse Website URL -------------\n{:?}",
+        full_url
     ));
 
     let request = CanisterHttpRequestArgument {
-        url: url.clone(),
+        url: full_url.clone(),
         max_response_bytes: None,
         method: HttpMethod::GET,
         headers: request_headers,
