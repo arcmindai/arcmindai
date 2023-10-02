@@ -28,6 +28,9 @@ use tinytemplate::TinyTemplate;
 mod config;
 use config::GOOGLE_SEARCH_URL;
 
+mod util;
+use util::generate_request_id;
+
 const BROWSE_WEBSITE_PROXY_URL: &str = "https://browsewebsite-4gbndkvjta-uc.a.run.app";
 
 #[derive(Default, CandidType, Serialize, Deserialize)]
@@ -60,15 +63,22 @@ async fn browse_website(url: String) -> String {
     }];
 
     let url_encoded_weburl = encode(url.as_str());
-    let full_url = BROWSE_WEBSITE_PROXY_URL.to_string() + "/?webURL=" + &url_encoded_weburl;
+    let request_id = generate_request_id();
+
+    // add requestId to OPENAI_URL
+    let final_url = BROWSE_WEBSITE_PROXY_URL.to_string()
+        + "?requestId="
+        + &request_id
+        + "&webURL="
+        + &url_encoded_weburl;
 
     ic_cdk::api::print(format!(
         "\n ------------- Browse Website URL -------------\n{:?}",
-        full_url
+        final_url
     ));
 
     let request = CanisterHttpRequestArgument {
-        url: full_url.clone(),
+        url: final_url.clone(),
         max_response_bytes: None,
         method: HttpMethod::GET,
         headers: request_headers,
@@ -117,10 +127,12 @@ async fn google(query: String) -> String {
         query: url_encoded_query.to_string(),
     };
 
-    let full_url = tt.render("google_search", &context).unwrap();
+    let google_url = tt.render("google_search", &context).unwrap();
+    let request_id = generate_request_id();
+    let final_url = google_url.to_string() + "&requestId=" + &request_id;
 
     let request = CanisterHttpRequestArgument {
-        url: full_url,
+        url: final_url,
         max_response_bytes: None,
         method: HttpMethod::GET,
         headers: request_headers,
