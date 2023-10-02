@@ -80,8 +80,9 @@ async fn ask(question: String) -> String {
 
     let json_utf8: Vec<u8> = request_body.to_string().into_bytes();
     let request_body: Option<Vec<u8>> = Some(json_utf8);
-    let canister_id = api::id().to_text();
+
     // extract the first 5 characters from the request_id
+    let canister_id = api::id().to_text();
     let init_canister_id = canister_id.chars().take(5).collect::<String>();
     let now: Timestamp = time();
     let request_id = format!("{}-{}", init_canister_id, now);
