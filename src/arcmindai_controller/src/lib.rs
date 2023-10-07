@@ -16,7 +16,10 @@ use ic_cdk_timers::TimerId;
 use ic_stable_structures::{writer::Writer, Memory as _, StableVec};
 
 mod datatype;
-use datatype::{ChatHistory, ChatRole, Goal, GoalStatus, PromptContext, Timestamp};
+use datatype::{
+    ChatHistory, ChatRole, Goal, GoalStatus, PromptContext, Timestamp, PROMPT_CMD_DO_NOTHING,
+    PROMPT_CMD_INSERT_CHAT, PROMPT_CMD_SHUTDOWN, PROMPT_CMD_START_AGENT,
+};
 
 mod prompts;
 use prompts::{PROMPT, RESPONSE_FORMAT};
@@ -37,6 +40,8 @@ use guards::assert_owner;
 
 mod memory;
 use memory::Memory;
+
+use async_recursion::async_recursion;
 
 const MIN_INTERVAL_SECS: u64 = 10;
 
@@ -91,7 +96,7 @@ static CYCLES_USED: AtomicU64 = AtomicU64::new(0);
 // TODO - add owner check back when full ArcMind AI is ready
 #[update]
 #[candid_method(update)]
-async fn ask(question: String) -> String {
+async fn start_agent(question: String) -> String {
     let brain_canister: Principal = STATE.with(|state| (*state.borrow()).brain_canister.unwrap());
     let (result,): (String,) = ic_cdk::api::call::call(brain_canister, "ask", (question,))
         .await
@@ -138,9 +143,9 @@ async fn process_new_goals() {
                     // update goal status to running to prevent duplicate processing
                     update_goal_status(i, my_goal, GoalStatus::Running);
 
-                    let result: String = ask(full_prompt).await;
-                    insert_chat(ChatRole::ArcMind, result.clone());
-                    save_result(i, result.clone());
+                    // ------ Chain of Thoughts Main Loop ------
+                    // TODO - create inital chain of throughts input, update prompts template to include agent_name, task, and prompt
+                    run_chain_of_thoughts(i, full_prompt).await;
                 }
             }
             None => {
@@ -152,6 +157,102 @@ async fn process_new_goals() {
     }
 
     track_cycles_used();
+}
+
+/*
+ * Chain of Thoughts Main Loop
+ * @param command: Chain of Thoughts response JSON string
+ */
+#[async_recursion]
+async fn run_chain_of_thoughts(goal_key: u64, cof_result: String) -> String {
+    // ------ Begin Chain of Thoughts ------
+
+    // parse command string
+    let cof_json = serde_json::from_str::<serde_json::Value>(&cof_result);
+    if cof_json.is_err() {
+        return "Invalid JSON response.".to_string();
+    }
+
+    let cof_json = cof_json.unwrap();
+    let cof_cmd = cof_json["command"].clone();
+    let cmd_name = cof_cmd["name"].as_str();
+
+    // match and run command
+    // TODO - add google, browse_website commands and update prompts template
+    // TODO - implement delegate functions: google, browse_website
+    match cmd_name {
+        Some(PROMPT_CMD_INSERT_CHAT) => {
+            let cmd_args = cof_cmd["args"].clone();
+            let text = cmd_args["text"].as_str();
+            if text.is_none() {
+                return "Invalid insert_chat command.".to_string();
+            }
+
+            insert_chat(ChatRole::ArcMind, text.unwrap().to_string());
+
+            // TODO - create next prompt
+            let next_promot = "".to_string();
+
+            return run_chain_of_thoughts(goal_key, next_promot).await;
+        }
+        Some(PROMPT_CMD_START_AGENT) => {
+            let cmd_args = cof_cmd["args"].clone();
+            let name = cmd_args["name"].as_str();
+            // let task = cmd_args["task"].as_str();
+            let prompt = cmd_args["prompt"].as_str();
+            if name.is_none() {
+                return "Invalid insert_chat command.".to_string();
+            }
+
+            let result: String = start_agent(prompt.unwrap().to_string()).await;
+
+            // insert result into chat history
+            insert_chat(ChatRole::ArcMind, result.clone());
+
+            // TODO - create next prompt
+            let next_promot = "".to_string();
+
+            return run_chain_of_thoughts(goal_key, next_promot).await;
+        }
+        Some(PROMPT_CMD_DO_NOTHING) => {
+            let result = "ArcMind AI has decided to do nothing".to_string();
+
+            // insert result into chat history
+            insert_chat(ChatRole::ArcMind, result.to_string());
+            // save result
+            save_result(goal_key, result.clone());
+
+            return result;
+        }
+        Some(PROMPT_CMD_SHUTDOWN) => {
+            // insert result into chat history
+            insert_chat(ChatRole::ArcMind, cof_result.clone());
+            // save result
+            save_result(goal_key, cof_result.clone());
+
+            return cof_result;
+        }
+        Some(n) => {
+            let result = format!("ArcMind AI encountered an invalid command: {}", n);
+
+            // insert result into chat history
+            insert_chat(ChatRole::ArcMind, result.to_string());
+            save_result(goal_key, result.clone());
+
+            return result;
+        }
+        None => {
+            let result = "ArcMind AI encountered no command.".to_string();
+
+            // insert result into chat history
+            insert_chat(ChatRole::ArcMind, result.to_string());
+            save_result(goal_key, result.clone());
+
+            return result;
+        }
+    }
+
+    // ------ End of Chain of Thoughts ------
 }
 
 // Retrieves goal from stable data

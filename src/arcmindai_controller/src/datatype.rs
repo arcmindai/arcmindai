@@ -7,6 +7,11 @@ use ic_stable_structures::{BoundedStorable, Storable};
 
 const MAX_VALUE_SIZE: u32 = 1024 * 1024;
 
+pub const PROMPT_CMD_INSERT_CHAT: &str = "insert_chat";
+pub const PROMPT_CMD_START_AGENT: &str = "start_agent";
+pub const PROMPT_CMD_DO_NOTHING: &str = "do_nothing";
+pub const PROMPT_CMD_SHUTDOWN: &str = "shutdown";
+
 #[derive(Serialize)]
 pub struct PromptContext {
     pub goal: String,

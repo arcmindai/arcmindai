@@ -11,10 +11,10 @@ Constraints:
 4. Exclusively use the commands listed in double quotes e.g. "command name"
 
 Commands:
-1. Write to file: "save_result", args: "key": <key>, "text": "<text>"
+1. Write to file: "insert_chat", args: "text": "<text>"
 2. Start GPT Agent: "start_agent", args: "name": "<name>", "task": "<short_task_desc>", "prompt": "<prompt>"
 3. Do Nothing: "do_nothing", args:
-4. Task Complete (Shutdown): "save_result", args: "key": <key>, "reason": "<reason>"
+4. Task Complete (Shutdown): "shutdown", args: "reason": "<reason>"
 
 Resources:
 1. GPT-4 powered Agents for delegation of simple tasks.
