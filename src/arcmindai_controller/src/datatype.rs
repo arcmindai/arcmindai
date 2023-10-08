@@ -6,15 +6,23 @@ use std::borrow::Cow;
 use ic_stable_structures::{BoundedStorable, Storable};
 
 const MAX_VALUE_SIZE: u32 = 1024 * 1024;
+pub const RECENT_CHAT_HISTORY: usize = 50;
 
-pub const PROMPT_CMD_INSERT_CHAT: &str = "insert_chat";
+pub const PROMPT_CMD_GOOGLE: &str = "google";
+pub const PROMPT_CMD_BROWSE_WEBSITE: &str = "browse_website";
 pub const PROMPT_CMD_START_AGENT: &str = "start_agent";
+pub const PROMPT_CMD_WRITE_FILE: &str = "write_file";
 pub const PROMPT_CMD_DO_NOTHING: &str = "do_nothing";
 pub const PROMPT_CMD_SHUTDOWN: &str = "shutdown";
 
+pub const TOP_CMD_AGENT_NAME: &str = "ArcMind";
+pub const TOP_CMD_AGENT_TASK: &str = "knowing the greatest knowledge of the world";
+
 #[derive(Serialize)]
 pub struct PromptContext {
-    pub goal: String,
+    pub agent_name: String,
+    pub agent_task: String,
+    pub agent_goal: String,
     pub current_date_time: String,
     pub response_format: String,
     pub past_events: String,
@@ -29,14 +37,14 @@ pub enum GoalStatus {
 
 pub type Timestamp = u64;
 
-#[derive(CandidType, Deserialize, PartialEq)]
+#[derive(CandidType, Deserialize, PartialEq, Serialize)]
 pub enum ChatRole {
     ArcMind,
     User,
     System,
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Serialize)]
 pub struct ChatHistory {
     pub content: String,
     pub role: ChatRole,

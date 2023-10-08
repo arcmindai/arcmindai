@@ -16,9 +16,15 @@ dfx deploy --network $IC_NETWORK arcmindai_brain --argument "(opt principal \"$O
 
 BRAIN_PRINCIPAL=$(dfx canister --network $IC_NETWORK id arcmindai_brain)
 
+# Deploy tools canister
+echo Deploying tools canister with owner $OWENR_PRINCIPAL on $IC_NETWORK
+dfx deploy --network $IC_NETWORK arcmindai_tools --argument "(opt principal \"$OWENR_PRINCIPAL\", \"$GOOGLE_API_KEY\", \"$GOOGLE_SEARCH_ENGINE_ID\")"
+
+TOOLS_PRINCIPAL=$(dfx canister --network $IC_NETWORK id arcmindai_tools)
+
 # Deploy controller canister
-echo Deploying controller canister with owner $OWENR_PRINCIPAL and brain $BRAIN_PRINCIPAL
-dfx deploy --network $IC_NETWORK arcmindai_controller --argument "(opt principal \"$OWENR_PRINCIPAL\", opt principal \"$BRAIN_PRINCIPAL\")"
+echo Deploying controller canister with owner $OWENR_PRINCIPAL, brain $BRAIN_PRINCIPAL tools $TOOLS_PRINCIPAL on $IC_NETWORK
+dfx deploy --network $IC_NETWORK arcmindai_controller --argument "(opt principal \"$OWENR_PRINCIPAL\", opt principal \"$BRAIN_PRINCIPAL\", opt principal \"$TOOLS_PRINCIPAL\")"
 echo Controller Owner:
 dfx canister --network $IC_NETWORK call arcmindai_controller get_owner
 
@@ -29,7 +35,3 @@ dfx canister --network $IC_NETWORK call arcmindai_brain update_owner "(principal
 
 echo Brain Owner:
 dfx canister --network $IC_NETWORK call arcmindai_brain get_owner
-
-# Deploy tools canister
-echo Deploying tools canister with owner $OWENR_PRINCIPAL on $IC_NETWORK
-dfx deploy --network $IC_NETWORK arcmindai_tools --argument "(opt principal \"$OWENR_PRINCIPAL\", \"$GOOGLE_API_KEY\", \"$GOOGLE_SEARCH_ENGINE_ID\")"
