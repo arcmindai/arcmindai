@@ -3,7 +3,8 @@ IC_NETWORK=local
 
 OwnerPrincipal=$(dfx identity --network $IC_NETWORK get-principal)
 BrainPrincipal=$(dfx canister --network $IC_NETWORK id arcmindai_brain)
+ToolsPrincipal=$(dfx canister --network $IC_NETWORK id arcmindai_tools)
 
 # Deploy controller canister
-echo Deploying controller canister with owner $OwnerPrincipal and brain $BrainPrincipal
-dfx deploy --network $IC_NETWORK arcmindai_controller --argument "(opt principal \"$OwnerPrincipal\", opt principal \"$BrainPrincipal\")"
+echo Deploying controller canister with owner $OwnerPrincipal, brain $BrainPrincipal and tools $ToolsPrincipal on $IC_NETWORK
+dfx deploy --network $IC_NETWORK arcmindai_controller --argument "(opt principal \"$OwnerPrincipal\", opt principal \"$BrainPrincipal\", opt principal \"$ToolsPrincipal\")"
