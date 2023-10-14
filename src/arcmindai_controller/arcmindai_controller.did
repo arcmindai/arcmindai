@@ -19,5 +19,6 @@ service : (opt principal, opt principal, opt principal) -> {
   get_owner : () -> (opt principal) query;
   get_tools_canister : () -> (opt principal) query;
   insert_goal : (text) -> ();
+  start_new_goal : () -> ();
   update_owner : (principal) -> ();
 }

@@ -273,7 +273,7 @@ async fn run_chain_of_thoughts(goal_key: u64, cof_input: String, main_goal: Stri
             insert_chat(ChatRole::System, result.clone());
 
             let browse_website_cmd_history =
-                "Command browse_website returned: Result saved successfully.";
+                "Command browse_website returned -> Result saved successfully.";
             insert_chat(ChatRole::System, browse_website_cmd_history.to_string());
 
             let generate_next_cmd = "GENERATE NEXT COMMAND JSON";
@@ -453,6 +453,19 @@ async fn browse_website(url: String, _question: String) -> String {
         .expect("call to browse_website failed");
 
     return result;
+}
+
+#[update]
+#[candid_method(update)]
+fn start_new_goal() {
+    // clear and reinit stable_chathistory_data and stable_goal_data
+    STATE.with(|s| {
+        s.borrow_mut().stable_chathistory_data =
+            StableVec::new(memory::get_stable_chathistory_vec_memory())
+                .expect("call to get_stable_goal_vec_memory fails");
+        s.borrow_mut().stable_goal_data = StableVec::new(memory::get_stable_goal_vec_memory())
+            .expect("call to get_stable_goal_vec_memory fails")
+    });
 }
 
 // ---------------------- Supporting Functions ----------------------
