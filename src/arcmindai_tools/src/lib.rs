@@ -32,6 +32,7 @@ mod util;
 use util::generate_request_id;
 
 const BROWSE_WEBSITE_PROXY_URL: &str = "https://browsewebsite-4gbndkvjta-uc.a.run.app";
+const MAX_NUM_GOOGLE_SEARCH_RESULTS: i32 = 3;
 
 #[derive(Default, CandidType, Serialize, Deserialize)]
 pub struct State {
@@ -93,7 +94,8 @@ async fn browse_website(url: String) -> String {
             result
         }
         Err((r, m)) => {
-            let message = format!("The ask resulted into error. RejectionCode: {r:?}, Error: {m}");
+            let message =
+                format!("The browse_website resulted into error. RejectionCode: {r:?}, Error: {m}");
             message
         }
     }
@@ -147,7 +149,8 @@ async fn google(query: String) -> String {
             result
         }
         Err((r, m)) => {
-            let message = format!("The ask resulted into error. RejectionCode: {r:?}, Error: {m}");
+            let message =
+                format!("The google resulted into error. RejectionCode: {r:?}, Error: {m}");
             message
         }
     }
@@ -168,6 +171,8 @@ fn transform(args: TransformArgs) -> HttpResponse {
         if res_json.is_err() {
             // If not JSON, convert HTML to text for browse_website response
             res_str = html2text::from_read(res_str.as_bytes(), 80);
+            // extract the top 5000 characters from res_str
+            res_str = res_str.chars().take(5000).collect();
             res.body = res_str.as_bytes().to_vec();
             return res;
         }
@@ -177,13 +182,21 @@ fn transform(args: TransformArgs) -> HttpResponse {
         let mut res_json_mut = res_json.unwrap();
         let res_items = res_json_mut["items"].as_array_mut().unwrap();
         let mut res_items_arr = Vec::new();
+        let mut num_items = 0;
+
         for item in res_items.iter_mut() {
+            if num_items >= MAX_NUM_GOOGLE_SEARCH_RESULTS {
+                break;
+            }
+
             let item_json = json!({
                 "title": item["title"],
                 "link": item["link"],
                 "snippet": item["snippet"]
             });
             res_items_arr.push(item_json);
+
+            num_items += 1;
         }
 
         // convert JSON array object to string
