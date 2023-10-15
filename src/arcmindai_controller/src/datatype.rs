@@ -27,6 +27,12 @@ pub struct PromptContext {
     pub past_events: String,
 }
 
+#[derive(Serialize)]
+pub struct WebQueryPromptContext {
+    pub web_query: String,
+    pub web_page_content: String,
+}
+
 #[derive(CandidType, Deserialize, PartialEq)]
 pub enum GoalStatus {
     Scheduled,

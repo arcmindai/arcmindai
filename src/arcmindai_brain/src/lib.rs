@@ -151,20 +151,26 @@ fn transform(args: TransformArgs) -> HttpResponse {
     if res.status == 200 {
         let res_str = String::from_utf8(args.response.body.clone())
             .expect("Transformed response is not UTF-8 encoded.");
-        println!("res_str = {:?}", res_str);
         let json_str = res_str.replace("\n", "");
 
         ic_cdk::api::print(format!("JSON str = {:?}", json_str));
 
-        let r: OpenAIResult = serde_json::from_str(json_str.as_str()).unwrap();
-        let content = &r.choices[0].message.content;
+        let openai_result = serde_json::from_str(json_str.as_str());
+        if openai_result.is_err() {
+            res.body = format!("Invalid JSON str = {:?}", json_str)
+                .as_bytes()
+                .to_vec();
+            return res;
+        }
 
+        let openai_body: OpenAIResult = openai_result.unwrap();
+        let content = &openai_body.choices[0].message.content;
         res.body = content.as_bytes().to_vec();
-    } else {
-        ic_cdk::api::print(format!("Received an error from jsonropc: err = {:?}", args));
+        return res;
     }
 
-    res
+    ic_cdk::api::print(format!("Received an error from jsonropc: err = {:?}", args));
+    return res;
 }
 
 // ---------------------- Supporting Functions ----------------------
