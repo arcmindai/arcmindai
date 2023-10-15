@@ -6,12 +6,11 @@ use std::borrow::Cow;
 use ic_stable_structures::{BoundedStorable, Storable};
 
 const MAX_VALUE_SIZE: u32 = 1024 * 1024;
-pub const RECENT_CHAT_HISTORY: usize = 50;
 
 pub const PROMPT_CMD_GOOGLE: &str = "google";
 pub const PROMPT_CMD_BROWSE_WEBSITE: &str = "browse_website";
 pub const PROMPT_CMD_START_AGENT: &str = "start_agent";
-pub const PROMPT_CMD_WRITE_FILE: &str = "write_file";
+pub const PROMPT_CMD_WRITE_FILE_AND_SHUTDOWN: &str = "write_file_and_shutdown";
 pub const PROMPT_CMD_DO_NOTHING: &str = "do_nothing";
 pub const PROMPT_CMD_SHUTDOWN: &str = "shutdown";
 

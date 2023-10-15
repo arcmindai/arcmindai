@@ -20,7 +20,7 @@ mod datatype;
 use datatype::{
     ChatHistory, ChatRole, Goal, GoalStatus, PromptContext, Timestamp, PROMPT_CMD_BROWSE_WEBSITE,
     PROMPT_CMD_DO_NOTHING, PROMPT_CMD_GOOGLE, PROMPT_CMD_SHUTDOWN, PROMPT_CMD_START_AGENT,
-    PROMPT_CMD_WRITE_FILE,
+    PROMPT_CMD_WRITE_FILE_AND_SHUTDOWN,
 };
 
 mod prompts;
@@ -45,15 +45,17 @@ use memory::Memory;
 
 use async_recursion::async_recursion;
 
-use datatype::{RECENT_CHAT_HISTORY, TOP_CMD_AGENT_NAME, TOP_CMD_AGENT_TASK};
+use datatype::{TOP_CMD_AGENT_NAME, TOP_CMD_AGENT_TASK};
 
 const MIN_INTERVAL_SECS: u64 = 10;
+const RECENT_CHAT_HISTORY: usize = 30;
 
 #[derive(Serialize, Deserialize)]
 pub struct State {
     pub owner: Option<Principal>,
     pub brain_canister: Option<Principal>,
     pub tools_canister: Option<Principal>,
+    pub is_pause_chain_of_thoughts: Option<bool>,
 
     #[serde(skip, default = "init_stable_goal_data")]
     stable_goal_data: StableVec<Goal, Memory>,
@@ -68,6 +70,7 @@ impl Default for State {
             owner: None,
             brain_canister: None,
             tools_canister: None,
+            is_pause_chain_of_thoughts: Some(false),
             stable_goal_data: init_stable_goal_data(),
             stable_chathistory_data: init_stable_chathistory_data(),
         }
@@ -169,12 +172,19 @@ fn create_prompt(
         format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]").unwrap();
     let datetime_string = now.format(&format).unwrap();
 
-    // Serialize most recent history to JSON string.
-    let recent_history = history
-        .iter()
-        .rev()
-        .take(RECENT_CHAT_HISTORY)
-        .collect::<Vec<_>>();
+    // iterate through history, truncate content to 1000 chars
+    let mut recent_history: Vec<ChatHistory> = Vec::new();
+    let mut i = 0;
+
+    for chat in history {
+        if i >= RECENT_CHAT_HISTORY {
+            break;
+        }
+
+        recent_history.push(chat);
+        i += 1;
+    }
+
     let past_events = serde_json::to_string(&recent_history).unwrap();
 
     ic_cdk::println!("past_events length: {}", past_events.len());
@@ -201,6 +211,13 @@ fn create_prompt(
 #[async_recursion]
 async fn run_chain_of_thoughts(goal_key: u64, cof_input: String, main_goal: String) -> String {
     // ------ Begin Chain of Thoughts ------
+    let is_pause_chain_of_thoughts: bool =
+        STATE.with(|state| (*state.borrow()).is_pause_chain_of_thoughts.unwrap());
+    if is_pause_chain_of_thoughts {
+        let message = "Chain of Thoughts is paused.".to_string();
+        insert_chat(ChatRole::System, message.clone());
+        return message.clone();
+    }
 
     // parse command string
     let cof_json = serde_json::from_str::<serde_json::Value>(&cof_input);
@@ -247,13 +264,10 @@ async fn run_chain_of_thoughts(goal_key: u64, cof_input: String, main_goal: Stri
             let result: String = google(query.unwrap().to_string()).await;
 
             // insert result into chat history
-            insert_chat(ChatRole::ArcMind, result.clone());
+            insert_chat(ChatRole::System, result.clone());
 
             let google_cmd_history = "Command google returned: Result saved successfully.";
             insert_chat(ChatRole::System, google_cmd_history.to_string());
-
-            let generate_next_cmd = "GENERATE NEXT COMMAND JSON";
-            insert_chat(ChatRole::User, generate_next_cmd.to_string());
 
             let next_command = create_cof_command(main_goal.to_string());
             return run_chain_of_thoughts(goal_key, next_command, main_goal.to_string()).await;
@@ -276,30 +290,28 @@ async fn run_chain_of_thoughts(goal_key: u64, cof_input: String, main_goal: Stri
                 "Command browse_website returned -> Result saved successfully.";
             insert_chat(ChatRole::System, browse_website_cmd_history.to_string());
 
-            let generate_next_cmd = "GENERATE NEXT COMMAND JSON";
-            insert_chat(ChatRole::User, generate_next_cmd.to_string());
-
             let next_command = create_cof_command(main_goal.to_string());
             return run_chain_of_thoughts(goal_key, next_command, main_goal.to_string()).await;
         }
-        Some(PROMPT_CMD_WRITE_FILE) => {
+        Some(PROMPT_CMD_WRITE_FILE_AND_SHUTDOWN) => {
             let cmd_args = cof_cmd["args"].clone();
             let key = cmd_args["key"].as_str();
             let text = cmd_args["text"].as_str();
             if text.is_none() || key.is_none() {
-                return "Invalid write_file command.".to_string();
+                return "Invalid write_file_and_shutdown command.".to_string();
             }
 
-            write_file(key.unwrap().to_string(), text.unwrap().to_string());
+            write_file_and_shutdown(key.unwrap().to_string(), text.unwrap().to_string());
 
-            let write_cmd_history = "Command write_to_file returned: File written to successfully.";
+            let write_cmd_history = "Command write_file_and_shutdown has run successfully.";
             insert_chat(ChatRole::System, write_cmd_history.to_string());
 
-            let generate_next_cmd = "GENERATE NEXT COMMAND JSON";
-            insert_chat(ChatRole::User, generate_next_cmd.to_string());
+            // insert shutdown result into chat history
+            let shutdown_result =
+                "ArcMind AI has completed the goal. End of processing.".to_string();
+            insert_chat(ChatRole::System, shutdown_result.to_string());
 
-            let next_command: String = create_cof_command(main_goal.to_string());
-            return run_chain_of_thoughts(goal_key, next_command, main_goal.to_string()).await;
+            return cof_input;
         }
         Some(PROMPT_CMD_DO_NOTHING) => {
             // insert result into chat history
@@ -315,6 +327,7 @@ async fn run_chain_of_thoughts(goal_key: u64, cof_input: String, main_goal: Stri
             insert_chat(ChatRole::System, cof_input.clone());
             // save result
             save_result(goal_key, cof_input.clone());
+
             // insert shutdown result into chat history
             let shutdown_result =
                 "ArcMind AI has completed the goal. End of processing.".to_string();
@@ -386,6 +399,32 @@ fn insert_goal(goal_string: String) {
     insert_chat(ChatRole::User, goal_string.clone());
 }
 
+// Inserts a goal into the stable data Goal Vec and ChatHistory Vec
+// TODO - add owner check back when full ArcMind AI is ready
+#[update]
+#[candid_method(update)]
+fn start_new_goal(goal_string: String) {
+    let now: Timestamp = time();
+    let new_goal = Goal {
+        goal: goal_string.clone(),
+        status: GoalStatus::Scheduled,
+        created_at: now,
+        updated_at: now,
+        result: None,
+    };
+
+    clear_all_goals();
+
+    STATE.with(|s| {
+        s.borrow_mut()
+            .stable_goal_data
+            .push(&new_goal)
+            .expect("call to insert_goal failed")
+    });
+
+    insert_chat(ChatRole::User, goal_string.clone());
+}
+
 fn update_goal_status(index: u64, goal: Goal, status: GoalStatus) {
     let updated_goal: Goal = Goal {
         status: status,
@@ -433,7 +472,7 @@ fn insert_chat(role: ChatRole, content: String) {
     });
 }
 
-fn write_file(_key: String, text: String) {
+fn write_file_and_shutdown(_key: String, text: String) {
     insert_chat(ChatRole::ArcMind, text);
 }
 
@@ -455,9 +494,10 @@ async fn browse_website(url: String, _question: String) -> String {
     return result;
 }
 
+// TODO - add owner check back when full ArcMind AI is ready
 #[update]
 #[candid_method(update)]
-fn start_new_goal() {
+fn clear_all_goals() {
     // clear and reinit stable_chathistory_data and stable_goal_data
     STATE.with(|s| {
         s.borrow_mut().stable_chathistory_data =
@@ -483,6 +523,7 @@ fn init(
             owner: Some(my_owner),
             brain_canister: brain_canister,
             tools_canister: tools_canister,
+            is_pause_chain_of_thoughts: Some(false),
             stable_goal_data: init_stable_goal_data(),
             stable_chathistory_data: init_stable_chathistory_data(),
         };
@@ -514,6 +555,18 @@ pub fn get_tools_canister() -> Option<Principal> {
 pub fn update_owner(new_owner: Principal) {
     STATE.with(|state| {
         state.borrow_mut().owner = Some(new_owner);
+    });
+}
+
+// TODO - add owner check when full ArcMind AI is ready
+#[update]
+#[candid_method(update)]
+pub fn toggle_pause_cof() {
+    let cur_pause = STATE
+        .with(|state| (*state.borrow()).is_pause_chain_of_thoughts)
+        .unwrap();
+    STATE.with(|state| {
+        state.borrow_mut().is_pause_chain_of_thoughts = Some(!cur_pause);
     });
 }
 
