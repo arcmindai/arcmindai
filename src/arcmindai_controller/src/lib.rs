@@ -18,13 +18,13 @@ use ic_stable_structures::{writer::Writer, Memory as _, StableVec};
 
 mod datatype;
 use datatype::{
-    ChatHistory, ChatRole, Goal, GoalStatus, PromptContext, Timestamp, PROMPT_CMD_BROWSE_WEBSITE,
-    PROMPT_CMD_DO_NOTHING, PROMPT_CMD_GOOGLE, PROMPT_CMD_SHUTDOWN, PROMPT_CMD_START_AGENT,
-    PROMPT_CMD_WRITE_FILE_AND_SHUTDOWN,
+    ChatHistory, ChatRole, Goal, GoalStatus, PromptContext, Timestamp, WebQueryPromptContext,
+    PROMPT_CMD_BROWSE_WEBSITE, PROMPT_CMD_DO_NOTHING, PROMPT_CMD_GOOGLE, PROMPT_CMD_SHUTDOWN,
+    PROMPT_CMD_START_AGENT, PROMPT_CMD_WRITE_FILE_AND_SHUTDOWN,
 };
 
 mod prompts;
-use prompts::{PROMPT, RESPONSE_FORMAT};
+use prompts::{COF_PROMPT, RESPONSE_FORMAT, WEB_QUERY_PROMPT};
 
 use tinytemplate::TinyTemplate;
 
@@ -164,7 +164,7 @@ fn create_prompt(
 ) -> String {
     let mut tt = TinyTemplate::new();
     let template_name = "prompt";
-    tt.add_template(template_name, PROMPT).unwrap();
+    tt.add_template(template_name, COF_PROMPT).unwrap();
 
     let now_epoch: Timestamp = time();
     let now = OffsetDateTime::from_unix_timestamp_nanos(now_epoch.try_into().unwrap()).unwrap();
@@ -196,6 +196,22 @@ fn create_prompt(
         current_date_time: datetime_string,
         response_format: RESPONSE_FORMAT.to_string(),
         past_events: past_events.to_string(),
+    };
+
+    let full_prompt = tt.render(template_name, &context).unwrap();
+    ic_cdk::println!("full_prompt: {}", full_prompt);
+
+    return full_prompt;
+}
+
+fn create_web_query_prompt(query: String, content: String) -> String {
+    let mut tt = TinyTemplate::new();
+    let template_name = "web_query_prompt";
+    tt.add_template(template_name, WEB_QUERY_PROMPT).unwrap();
+
+    let context = WebQueryPromptContext {
+        web_query: query,
+        web_page_content: content,
     };
 
     let full_prompt = tt.render(template_name, &context).unwrap();
@@ -280,10 +296,14 @@ async fn run_chain_of_thoughts(goal_key: u64, cof_input: String, main_goal: Stri
                 return "Invalid browse_website command.".to_string();
             }
 
-            let result: String =
+            let web_page_content: String =
                 browse_website(url.unwrap().to_string(), question.unwrap().to_string()).await;
 
-            // insert result into chat history
+            // create web query prompt
+            let web_query_prompt =
+                create_web_query_prompt(question.unwrap().to_string(), web_page_content);
+
+            let result: String = start_agent(web_query_prompt).await;
             insert_chat(ChatRole::System, result.clone());
 
             let browse_website_cmd_history =

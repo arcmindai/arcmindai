@@ -171,8 +171,6 @@ fn transform(args: TransformArgs) -> HttpResponse {
         if res_json.is_err() {
             // If not JSON, convert HTML to text for browse_website response
             res_str = html2text::from_read(res_str.as_bytes(), 80);
-            // extract the top 5000 characters from res_str
-            res_str = res_str.chars().take(5000).collect();
             res.body = res_str.as_bytes().to_vec();
             return res;
         }
