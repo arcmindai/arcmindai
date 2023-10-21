@@ -18,9 +18,9 @@ use ic_stable_structures::{writer::Writer, Memory as _, StableVec};
 
 mod datatype;
 use datatype::{
-    ChatHistory, ChatRole, Goal, GoalStatus, PromptContext, Timestamp, WebQueryPromptContext,
-    PROMPT_CMD_BROWSE_WEBSITE, PROMPT_CMD_DO_NOTHING, PROMPT_CMD_GOOGLE, PROMPT_CMD_SHUTDOWN,
-    PROMPT_CMD_START_AGENT, PROMPT_CMD_WRITE_FILE_AND_SHUTDOWN,
+    ChatDisplayHistory, ChatHistory, ChatRole, Goal, GoalStatus, PromptContext, Timestamp,
+    WebQueryPromptContext, PROMPT_CMD_BROWSE_WEBSITE, PROMPT_CMD_DO_NOTHING, PROMPT_CMD_GOOGLE,
+    PROMPT_CMD_SHUTDOWN, PROMPT_CMD_START_AGENT, PROMPT_CMD_WRITE_FILE_AND_SHUTDOWN,
 };
 
 mod prompts;
@@ -49,6 +49,7 @@ use datatype::{TOP_CMD_AGENT_NAME, TOP_CMD_AGENT_TASK};
 
 const MIN_INTERVAL_SECS: u64 = 10;
 const RECENT_CHAT_HISTORY: usize = 30;
+const DATE_TIME_FORMAT: &str = "[year]-[month]-[day] [hour]:[minute]:[second]";
 
 #[derive(Serialize, Deserialize)]
 pub struct State {
@@ -56,6 +57,7 @@ pub struct State {
     pub brain_canister: Option<Principal>,
     pub tools_canister: Option<Principal>,
     pub is_pause_chain_of_thoughts: Option<bool>,
+    pub browse_website_gpt_model: Option<String>,
 
     #[serde(skip, default = "init_stable_goal_data")]
     stable_goal_data: StableVec<Goal, Memory>,
@@ -71,6 +73,7 @@ impl Default for State {
             brain_canister: None,
             tools_canister: None,
             is_pause_chain_of_thoughts: Some(false),
+            browse_website_gpt_model: None,
             stable_goal_data: init_stable_goal_data(),
             stable_chathistory_data: init_stable_chathistory_data(),
         }
@@ -102,11 +105,12 @@ static CYCLES_USED: AtomicU64 = AtomicU64::new(0);
 
 // ---------------------- ArcMind AI Agent ----------------------
 // entry function for user to ask questions
-async fn start_agent(question: String) -> String {
+async fn start_agent(question: String, gpt_model: Option<String>) -> String {
     let brain_canister: Principal = STATE.with(|state| (*state.borrow()).brain_canister.unwrap());
-    let (result,): (String,) = ic_cdk::api::call::call(brain_canister, "ask", (question,))
-        .await
-        .expect("call to ask failed");
+    let (result,): (String,) =
+        ic_cdk::api::call::call(brain_canister, "ask", (question, gpt_model))
+            .await
+            .expect("call to ask failed");
 
     return result;
 }
@@ -166,14 +170,14 @@ fn create_prompt(
     let template_name = "prompt";
     tt.add_template(template_name, COF_PROMPT).unwrap();
 
+    let format_desc = format_description::parse(DATE_TIME_FORMAT).unwrap();
+
     let now_epoch: Timestamp = time();
     let now = OffsetDateTime::from_unix_timestamp_nanos(now_epoch.try_into().unwrap()).unwrap();
-    let format =
-        format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]").unwrap();
-    let datetime_string = now.format(&format).unwrap();
+    let current_datetime_string = now.format(&format_desc).unwrap();
 
     // iterate through history, truncate content to 1000 chars
-    let mut recent_history: Vec<ChatHistory> = Vec::new();
+    let mut recent_display_history: Vec<ChatDisplayHistory> = Vec::new();
     let mut i = 0;
 
     for chat in history {
@@ -181,11 +185,20 @@ fn create_prompt(
             break;
         }
 
-        recent_history.push(chat);
+        let created_at_dt =
+            OffsetDateTime::from_unix_timestamp_nanos(chat.created_at.try_into().unwrap()).unwrap();
+        let created_at_human = created_at_dt.format(&format_desc).unwrap();
+        let chat_display = ChatDisplayHistory {
+            content: chat.content,
+            role: chat.role,
+            created_at_human: created_at_human,
+        };
+
+        recent_display_history.push(chat_display);
         i += 1;
     }
 
-    let past_events = serde_json::to_string(&recent_history).unwrap();
+    let past_events = serde_json::to_string(&recent_display_history).unwrap();
 
     ic_cdk::println!("past_events length: {}", past_events.len());
 
@@ -193,7 +206,7 @@ fn create_prompt(
         agent_name: agent_name,
         agent_task: agent_task,
         agent_goal: agent_goal,
-        current_date_time: datetime_string,
+        current_date_time: current_datetime_string,
         response_format: RESPONSE_FORMAT.to_string(),
         past_events: past_events.to_string(),
     };
@@ -265,7 +278,7 @@ async fn run_chain_of_thoughts(goal_key: u64, cof_input: String, main_goal: Stri
             );
 
             // insert result into chat history
-            let result: String = start_agent(full_prompt).await;
+            let result: String = start_agent(full_prompt, None).await;
             insert_chat(ChatRole::ArcMind, result.clone());
 
             return run_chain_of_thoughts(goal_key, result, main_goal.to_string()).await;
@@ -303,7 +316,11 @@ async fn run_chain_of_thoughts(goal_key: u64, cof_input: String, main_goal: Stri
             let web_query_prompt =
                 create_web_query_prompt(question.unwrap().to_string(), web_page_content);
 
-            let result: String = start_agent(web_query_prompt).await;
+            // extract browse_website_gpt_model from state
+            let gpt_model: Option<String> =
+                STATE.with(|state| (*state.borrow()).browse_website_gpt_model.clone());
+
+            let result: String = start_agent(web_query_prompt, gpt_model).await;
             insert_chat(ChatRole::System, result.clone());
 
             let browse_website_cmd_history =
@@ -536,6 +553,7 @@ fn init(
     owner: Option<Principal>,
     brain_canister: Option<Principal>,
     tools_canister: Option<Principal>,
+    browse_website_gpt_model: Option<String>,
 ) {
     let my_owner: Principal = owner.unwrap_or_else(|| api::caller());
     STATE.with(|state| {
@@ -544,6 +562,7 @@ fn init(
             brain_canister: brain_canister,
             tools_canister: tools_canister,
             is_pause_chain_of_thoughts: Some(false),
+            browse_website_gpt_model: browse_website_gpt_model,
             stable_goal_data: init_stable_goal_data(),
             stable_chathistory_data: init_stable_chathistory_data(),
         };
