@@ -5,6 +5,7 @@
       "package": "arcmindai_controller",
       "type": "rust",
       "optimize": "cycles",
+      "gzip": true,
       "declarations": {
         "node_compatibility": true
       }
@@ -13,13 +14,15 @@
       "candid": "src/arcmindai_brain/arcmindai_brain.did",
       "package": "arcmindai_brain",
       "type": "rust",
-      "optimize": "cycles"
+      "optimize": "cycles",
+      "gzip": true
     },
     "arcmindai_tools": {
       "candid": "src/arcmindai_tools/arcmindai_tools.did",
       "package": "arcmindai_tools",
       "type": "rust",
-      "optimize": "cycles"
+      "optimize": "cycles",
+      "gzip": true
     }
   },
   "defaults": {
