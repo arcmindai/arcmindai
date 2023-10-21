@@ -20,6 +20,7 @@ use ic_cdk::api::time;
 
 mod guards;
 use guards::assert_owner;
+use tiktoken_rs::cl100k_base;
 
 type Timestamp = u64;
 
@@ -38,6 +39,7 @@ thread_local! {
 // ---------------------- ArcMind AI Agent ----------------------
 const OPENAI_HOST: &str = "openai-4gbndkvjta-uc.a.run.app";
 const OPENAI_URL: &str = "https://openai-4gbndkvjta-uc.a.run.app";
+const MAX_TOKENS: usize = 15000;
 
 // entry function for user to ask questions
 #[update(guard = "assert_owner")]
@@ -72,6 +74,25 @@ async fn ask(question: String, custom_gpt_model: Option<String>) -> String {
         },
     ];
 
+    // check no. of tokens
+    let bpe = cl100k_base().unwrap();
+    let tokens = bpe.encode_with_special_tokens(question.as_str());
+    let tokens_len = tokens.len();
+    ic_cdk::println!("Token count: : {}", tokens_len);
+
+    //if tokens_len >= 15000, truncate the last 1000 characters from the question
+    let mut safe_question = question;
+    if tokens_len >= MAX_TOKENS {
+        safe_question = safe_question
+            .chars()
+            .take(safe_question.len() - 1000)
+            .collect::<String>();
+        ic_cdk::println!(
+            "max_tokens left is zero!! Question is truncated to: \n{}",
+            safe_question
+        );
+    }
+
     // lower temperature = more predictable and deterministic response = less creative
     // so that IC replicas can reach consensus on the response
     let request_body = json!({
@@ -79,7 +100,7 @@ async fn ask(question: String, custom_gpt_model: Option<String>) -> String {
         "messages": [
             {
                 "role": "user",
-                "content": question
+                "content": safe_question
             }
         ],
         "temperature": 0.7
