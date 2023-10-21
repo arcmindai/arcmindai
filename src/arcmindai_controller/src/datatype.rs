@@ -50,6 +50,13 @@ pub enum ChatRole {
 }
 
 #[derive(CandidType, Deserialize, Serialize)]
+pub struct ChatDisplayHistory {
+    pub content: String,
+    pub role: ChatRole,
+    pub created_at_human: String,
+}
+
+#[derive(CandidType, Deserialize, Serialize)]
 pub struct ChatHistory {
     pub content: String,
     pub role: ChatRole,
