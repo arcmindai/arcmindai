@@ -12,7 +12,7 @@ type Goal = record {
   created_at : nat64;
 };
 type GoalStatus = variant { Complete; Scheduled; Running };
-service : (opt principal, opt principal, opt principal) -> {
+service : (opt principal, opt principal, opt principal, opt text) -> {
   clear_all_goals : () -> ();
   get_brain_canister : () -> (opt principal) query;
   get_chathistory : () -> (vec ChatHistory) query;

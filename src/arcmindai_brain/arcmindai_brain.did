@@ -1,5 +1,5 @@
 service : (opt principal, text, text) -> {
-  ask : (text) -> (text);
+  ask : (text, opt text) -> (text);
   get_owner : () -> (opt principal) query;
   update_owner : (principal) -> ();
 }

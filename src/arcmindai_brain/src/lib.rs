@@ -42,9 +42,16 @@ const OPENAI_URL: &str = "https://openai-4gbndkvjta-uc.a.run.app";
 // entry function for user to ask questions
 #[update(guard = "assert_owner")]
 #[candid_method(update)]
-async fn ask(question: String) -> String {
+async fn ask(question: String, custom_gpt_model: Option<String>) -> String {
     let openai_api_key = STATE.with(|state| (*state.borrow()).openai_api_key.clone());
-    let gpt_model = STATE.with(|state| (*state.borrow()).gpt_model.clone());
+
+    // use custom gpt model if provided
+    let gpt_model = match custom_gpt_model {
+        Some(model) => model,
+        None => STATE.with(|state| (*state.borrow()).gpt_model.clone()),
+    };
+
+    ic_cdk::api::print(format!("ask model: {:?}", gpt_model));
 
     let request_headers = vec![
         HttpHeader {
