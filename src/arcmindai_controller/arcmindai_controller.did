@@ -1,6 +1,26 @@
-service : (opt principal, opt principal) -> {
-  ask : (text) -> (text);
+type ChatHistory = record {
+  content : text;
+  role : ChatRole;
+  created_at : nat64;
+};
+type ChatRole = variant { System; User; ArcMind };
+type Goal = record {
+  status : GoalStatus;
+  result : opt text;
+  updated_at : nat64;
+  goal : text;
+  created_at : nat64;
+};
+type GoalStatus = variant { Complete; Scheduled; Running };
+service : (opt principal, opt principal, opt principal, opt text) -> {
+  clear_all_goals : () -> ();
   get_brain_canister : () -> (opt principal) query;
+  get_chathistory : () -> (vec ChatHistory) query;
+  get_goal : (nat64) -> (opt Goal) query;
   get_owner : () -> (opt principal) query;
+  get_tools_canister : () -> (opt principal) query;
+  insert_goal : (text) -> ();
+  start_new_goal : (text) -> ();
+  toggle_pause_cof : () -> ();
   update_owner : (principal) -> ();
 }

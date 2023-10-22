@@ -1,5 +1,6 @@
 service : (opt principal, text, text) -> {
-  ask : (text, opt text) -> (text);
+  browse_website : (text) -> (text);
   get_owner : () -> (opt principal) query;
+  google : (text) -> (text);
   update_owner : (principal) -> ();
 }
