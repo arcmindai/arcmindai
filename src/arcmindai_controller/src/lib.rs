@@ -50,6 +50,7 @@ use datatype::{TOP_CMD_AGENT_NAME, TOP_CMD_AGENT_TASK};
 const MIN_INTERVAL_SECS: u64 = 10;
 const RECENT_CHAT_HISTORY: usize = 30;
 const DATE_TIME_FORMAT: &str = "[year]-[month]-[day] [hour]:[minute]:[second]";
+const MAX_NUM_COF: u16 = 40;
 
 #[derive(Serialize, Deserialize)]
 pub struct State {
@@ -132,7 +133,7 @@ async fn process_new_goals() {
 
                     // ------ Chain of Thoughts Main Loop ------
                     let cof_input = create_cof_command(question.clone());
-                    run_chain_of_thoughts(i, cof_input.to_string(), question.to_string()).await;
+                    run_chain_of_thoughts(0, i, cof_input.to_string(), question.to_string()).await;
                 }
             }
             None => {
@@ -238,12 +239,23 @@ fn create_web_query_prompt(query: String, content: String) -> String {
  * @param command: Chain of Thoughts response JSON string
  */
 #[async_recursion]
-async fn run_chain_of_thoughts(goal_key: u64, cof_input: String, main_goal: String) -> String {
+async fn run_chain_of_thoughts(
+    num_thoughts: u16,
+    goal_key: u64,
+    cof_input: String,
+    main_goal: String,
+) -> String {
     // ------ Begin Chain of Thoughts ------
     let is_pause_chain_of_thoughts: bool =
         STATE.with(|state| (*state.borrow()).is_pause_chain_of_thoughts.unwrap());
     if is_pause_chain_of_thoughts {
         let message = "Chain of Thoughts is paused.".to_string();
+        insert_chat(ChatRole::System, message.clone());
+        return message.clone();
+    }
+
+    if num_thoughts >= MAX_NUM_COF {
+        let message = "Chain of Thoughts has reached max number of thoughts.".to_string();
         insert_chat(ChatRole::System, message.clone());
         return message.clone();
     }
@@ -281,7 +293,13 @@ async fn run_chain_of_thoughts(goal_key: u64, cof_input: String, main_goal: Stri
             let result: String = start_agent(full_prompt, None).await;
             insert_chat(ChatRole::ArcMind, result.clone());
 
-            return run_chain_of_thoughts(goal_key, result, main_goal.to_string()).await;
+            return run_chain_of_thoughts(
+                num_thoughts + 1,
+                goal_key,
+                result,
+                main_goal.to_string(),
+            )
+            .await;
         }
         Some(PROMPT_CMD_GOOGLE) => {
             let cmd_args = cof_cmd["args"].clone();
@@ -299,7 +317,13 @@ async fn run_chain_of_thoughts(goal_key: u64, cof_input: String, main_goal: Stri
             insert_chat(ChatRole::System, google_cmd_history.to_string());
 
             let next_command = create_cof_command(main_goal.to_string());
-            return run_chain_of_thoughts(goal_key, next_command, main_goal.to_string()).await;
+            return run_chain_of_thoughts(
+                num_thoughts + 1,
+                goal_key,
+                next_command,
+                main_goal.to_string(),
+            )
+            .await;
         }
         Some(PROMPT_CMD_BROWSE_WEBSITE) => {
             let cmd_args = cof_cmd["args"].clone();
@@ -328,7 +352,13 @@ async fn run_chain_of_thoughts(goal_key: u64, cof_input: String, main_goal: Stri
             insert_chat(ChatRole::System, browse_website_cmd_history.to_string());
 
             let next_command = create_cof_command(main_goal.to_string());
-            return run_chain_of_thoughts(goal_key, next_command, main_goal.to_string()).await;
+            return run_chain_of_thoughts(
+                num_thoughts + 1,
+                goal_key,
+                next_command,
+                main_goal.to_string(),
+            )
+            .await;
         }
         Some(PROMPT_CMD_WRITE_FILE_AND_SHUTDOWN) => {
             let cmd_args = cof_cmd["args"].clone();
@@ -373,23 +403,38 @@ async fn run_chain_of_thoughts(goal_key: u64, cof_input: String, main_goal: Stri
             return cof_input;
         }
         Some(n) => {
-            // insert result into chat history
-            let result = format!(
-                "ArcMind AI encountered an invalid command stopped processing: {}",
-                n
-            );
-            insert_chat(ChatRole::System, result.to_string());
-            save_result(goal_key, result.clone());
+            let sys_result = format!("ArcMind AI encountered an invalid command: {}", n);
+            insert_chat(ChatRole::System, sys_result.to_string());
 
-            return result;
+            let user_result =
+                "The command you provided is invalid. Use a valid command and try again.";
+            insert_chat(ChatRole::User, user_result.to_string());
+
+            let next_command = create_cof_command(main_goal.to_string());
+            return run_chain_of_thoughts(
+                num_thoughts + 1,
+                goal_key,
+                next_command,
+                main_goal.to_string(),
+            )
+            .await;
         }
         None => {
-            // insert result into chat history
-            let result = "ArcMind AI encountered no command and stopped processing.".to_string();
-            insert_chat(ChatRole::System, result.to_string());
-            save_result(goal_key, result.clone());
+            let sys_result = "ArcMind AI encountered None command";
+            insert_chat(ChatRole::System, sys_result.to_string());
 
-            return result;
+            let user_result =
+                "The command you provided is invalid. Use a valid command and try again.";
+            insert_chat(ChatRole::User, user_result.to_string());
+
+            let next_command = create_cof_command(main_goal.to_string());
+            return run_chain_of_thoughts(
+                num_thoughts + 1,
+                goal_key,
+                next_command,
+                main_goal.to_string(),
+            )
+            .await;
         }
     }
 
