@@ -39,7 +39,8 @@ thread_local! {
 // ---------------------- ArcMind AI Agent ----------------------
 const OPENAI_HOST: &str = "openai-4gbndkvjta-uc.a.run.app";
 const OPENAI_URL: &str = "https://openai-4gbndkvjta-uc.a.run.app";
-const MAX_TOKENS: usize = 15000;
+const MAX_16K_TOKENS: usize = 15000;
+const MAX_DEFAULT_TOKENS: usize = 8000;
 
 // entry function for user to ask questions
 #[update(guard = "assert_owner")]
@@ -74,24 +75,12 @@ async fn ask(question: String, custom_gpt_model: Option<String>) -> String {
         },
     ];
 
-    // check no. of tokens
-    let bpe = cl100k_base().unwrap();
-    let tokens = bpe.encode_with_special_tokens(question.as_str());
-    let tokens_len = tokens.len();
-    ic_cdk::println!("Token count: : {}", tokens_len);
-
-    //if tokens_len >= 15000, truncate the last 1000 characters from the question
-    let mut safe_question = question;
-    if tokens_len >= MAX_TOKENS {
-        safe_question = safe_question
-            .chars()
-            .take(safe_question.len() - 1000)
-            .collect::<String>();
-        ic_cdk::println!(
-            "max_tokens left is zero!! Question is truncated to: \n{}",
-            safe_question
-        );
-    }
+    // Truncate question if reaching the max token limit of the model
+    let max_token_limit = match gpt_model.as_str() {
+        "gpt-3.5-turbo-16k" => MAX_16K_TOKENS,
+        _ => MAX_DEFAULT_TOKENS,
+    };
+    let safe_question = truncate_question(question, max_token_limit);
 
     // lower temperature = more predictable and deterministic response = less creative
     // so that IC replicas can reach consensus on the response
@@ -137,6 +126,30 @@ async fn ask(question: String, custom_gpt_model: Option<String>) -> String {
             message
         }
     }
+}
+
+fn truncate_question(question: String, max_token_limit: usize) -> String {
+    // check no. of tokens again
+    let bpe = cl100k_base().unwrap();
+    let tokens = bpe.encode_with_special_tokens(question.as_str());
+    let tokens_len = tokens.len();
+    ic_cdk::println!("Token count: : {}", tokens_len);
+
+    if tokens_len > max_token_limit {
+        let safe_question = question
+            .chars()
+            .take(question.len() / 2)
+            .collect::<String>();
+        ic_cdk::println!(
+            "tokens_len reached limit {}!! Question is truncated to: \n{}",
+            MAX_16K_TOKENS,
+            safe_question
+        );
+
+        return truncate_question(safe_question, max_token_limit);
+    }
+
+    return question;
 }
 
 #[derive(serde::Serialize, Deserialize)]
