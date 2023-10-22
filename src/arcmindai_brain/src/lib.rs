@@ -16,8 +16,13 @@ use ic_cdk::{
 use serde::Serialize;
 use serde_json::json;
 
-use crate::guards::assert_owner;
+use ic_cdk::api::time;
+
 mod guards;
+use guards::assert_owner;
+use tiktoken_rs::cl100k_base;
+
+type Timestamp = u64;
 
 #[derive(Default, CandidType, Serialize, Deserialize)]
 pub struct State {
@@ -33,14 +38,22 @@ thread_local! {
 
 // ---------------------- ArcMind AI Agent ----------------------
 const OPENAI_HOST: &str = "openai-4gbndkvjta-uc.a.run.app";
-const OPENAI_URL: &str = "https://openai-4gbndkvjta-uc.a.run.app/openai";
+const OPENAI_URL: &str = "https://openai-4gbndkvjta-uc.a.run.app";
+const MAX_TOKENS: usize = 15000;
 
 // entry function for user to ask questions
 #[update(guard = "assert_owner")]
 #[candid_method(update)]
-async fn ask(question: String) -> String {
+async fn ask(question: String, custom_gpt_model: Option<String>) -> String {
     let openai_api_key = STATE.with(|state| (*state.borrow()).openai_api_key.clone());
-    let gpt_model = STATE.with(|state| (*state.borrow()).gpt_model.clone());
+
+    // use custom gpt model if provided
+    let gpt_model = match custom_gpt_model {
+        Some(model) => model,
+        None => STATE.with(|state| (*state.borrow()).gpt_model.clone()),
+    };
+
+    ic_cdk::api::print(format!("ask model: {:?}", gpt_model));
 
     let request_headers = vec![
         HttpHeader {
@@ -61,6 +74,25 @@ async fn ask(question: String) -> String {
         },
     ];
 
+    // check no. of tokens
+    let bpe = cl100k_base().unwrap();
+    let tokens = bpe.encode_with_special_tokens(question.as_str());
+    let tokens_len = tokens.len();
+    ic_cdk::println!("Token count: : {}", tokens_len);
+
+    //if tokens_len >= 15000, truncate the last 1000 characters from the question
+    let mut safe_question = question;
+    if tokens_len >= MAX_TOKENS {
+        safe_question = safe_question
+            .chars()
+            .take(safe_question.len() - 1000)
+            .collect::<String>();
+        ic_cdk::println!(
+            "max_tokens left is zero!! Question is truncated to: \n{}",
+            safe_question
+        );
+    }
+
     // lower temperature = more predictable and deterministic response = less creative
     // so that IC replicas can reach consensus on the response
     let request_body = json!({
@@ -68,17 +100,25 @@ async fn ask(question: String) -> String {
         "messages": [
             {
                 "role": "user",
-                "content": question
+                "content": safe_question
             }
         ],
-        "temperature": 0.5
+        "temperature": 0.7
     });
 
     let json_utf8: Vec<u8> = request_body.to_string().into_bytes();
     let request_body: Option<Vec<u8>> = Some(json_utf8);
 
+    // extract the first 5 characters from the request_id
+    let canister_id = api::id().to_text();
+    let init_canister_id = canister_id.chars().take(5).collect::<String>();
+    let now: Timestamp = time();
+    let request_id = format!("{}-{}", init_canister_id, now);
+
+    // add requestId to OPENAI_URL
+    let final_url = OPENAI_URL.to_string() + "?requestId=" + &request_id;
     let request = CanisterHttpRequestArgument {
-        url: OPENAI_URL.to_string(),
+        url: final_url.to_string(),
         max_response_bytes: None,
         method: HttpMethod::POST,
         headers: request_headers,
@@ -139,22 +179,26 @@ fn transform(args: TransformArgs) -> HttpResponse {
     if res.status == 200 {
         let res_str = String::from_utf8(args.response.body.clone())
             .expect("Transformed response is not UTF-8 encoded.");
-        println!("res_str = {:?}", res_str);
         let json_str = res_str.replace("\n", "");
-        // let json_str4 = json_str3.replace("(", "");
 
         ic_cdk::api::print(format!("JSON str = {:?}", json_str));
 
-        let r: OpenAIResult = serde_json::from_str(json_str.as_str()).unwrap();
-        let content = &r.choices[0].message.content;
+        let openai_result = serde_json::from_str(json_str.as_str());
+        if openai_result.is_err() {
+            res.body = format!("Invalid JSON str = {:?}", json_str)
+                .as_bytes()
+                .to_vec();
+            return res;
+        }
 
-        // res.body = args.response.body;
+        let openai_body: OpenAIResult = openai_result.unwrap();
+        let content = &openai_body.choices[0].message.content;
         res.body = content.as_bytes().to_vec();
-    } else {
-        ic_cdk::api::print(format!("Received an error from jsonropc: err = {:?}", args));
+        return res;
     }
 
-    res
+    ic_cdk::api::print(format!("Received an error from jsonropc: err = {:?}", args));
+    return res;
 }
 
 // ---------------------- Supporting Functions ----------------------
