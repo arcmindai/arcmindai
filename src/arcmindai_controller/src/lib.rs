@@ -278,7 +278,22 @@ async fn run_chain_of_thoughts(
             let task = cmd_args["task"].as_str();
             let prompt = cmd_args["prompt"].as_str();
             if name.is_none() || task.is_none() || prompt.is_none() {
-                return "Invalid insert_chat command.".to_string();
+                let sys_result =
+                    format!("ArcMind AI encountered an invalid command: {}", cof_input);
+                insert_chat(ChatRole::System, sys_result.to_string());
+
+                let user_result =
+                    "The command you provided is invalid. Use a valid command and try again.";
+                insert_chat(ChatRole::User, user_result.to_string());
+
+                let next_command = create_cof_command(main_goal.to_string());
+                return run_chain_of_thoughts(
+                    num_thoughts + 1,
+                    goal_key,
+                    next_command,
+                    main_goal.to_string(),
+                )
+                .await;
             }
 
             // create full prompt
