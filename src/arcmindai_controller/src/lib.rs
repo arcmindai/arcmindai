@@ -47,8 +47,8 @@ use async_recursion::async_recursion;
 
 use datatype::{TOP_CMD_AGENT_NAME, TOP_CMD_AGENT_TASK};
 
-const MIN_INTERVAL_SECS: u64 = 10;
-const RECENT_CHAT_HISTORY: usize = 30;
+const MIN_INTERVAL_SECS: u64 = 3;
+const RECENT_CHAT_HISTORY: usize = 40;
 const DATE_TIME_FORMAT: &str = "[year]-[month]-[day] [hour]:[minute]:[second]";
 const MAX_NUM_COF: u16 = 40;
 
@@ -108,8 +108,9 @@ static CYCLES_USED: AtomicU64 = AtomicU64::new(0);
 // entry function for user to ask questions
 async fn start_agent(question: String, gpt_model: Option<String>) -> String {
     let brain_canister: Principal = STATE.with(|state| (*state.borrow()).brain_canister.unwrap());
+    let num_retries: i8 = 0;
     let (result,): (String,) =
-        ic_cdk::api::call::call(brain_canister, "ask", (question, gpt_model))
+        ic_cdk::api::call::call(brain_canister, "ask", (question, gpt_model, num_retries))
             .await
             .expect("call to ask failed");
 
@@ -263,7 +264,11 @@ async fn run_chain_of_thoughts(
     // parse command string
     let cof_json = serde_json::from_str::<serde_json::Value>(&cof_input);
     if cof_json.is_err() {
-        return "Invalid JSON response.".to_string();
+        insert_chat(
+            ChatRole::System,
+            "ArcMind AI encountered invalid JSON response from previous command. A recovery commnand would be sent.".to_string(),
+        );
+        return run_recovery_cmd(num_thoughts, goal_key, main_goal).await;
     }
 
     let cof_json = cof_json.unwrap();
@@ -418,42 +423,36 @@ async fn run_chain_of_thoughts(
             return cof_input;
         }
         Some(n) => {
-            let sys_result = format!("ArcMind AI encountered an invalid command: {}", n);
-            insert_chat(ChatRole::System, sys_result.to_string());
-
-            let user_result =
-                "The command you provided is invalid. Use a valid command and try again.";
-            insert_chat(ChatRole::User, user_result.to_string());
-
-            let next_command = create_cof_command(main_goal.to_string());
-            return run_chain_of_thoughts(
-                num_thoughts + 1,
-                goal_key,
-                next_command,
-                main_goal.to_string(),
-            )
-            .await;
+            insert_chat(
+                ChatRole::System,
+                format!("ArcMind AI encountered an invalid command: {}", n),
+            );
+            return run_recovery_cmd(num_thoughts, goal_key, main_goal).await;
         }
         None => {
-            let sys_result = "ArcMind AI encountered None command";
-            insert_chat(ChatRole::System, sys_result.to_string());
-
-            let user_result =
-                "The command you provided is invalid. Use a valid command and try again.";
-            insert_chat(ChatRole::User, user_result.to_string());
-
-            let next_command = create_cof_command(main_goal.to_string());
-            return run_chain_of_thoughts(
-                num_thoughts + 1,
-                goal_key,
-                next_command,
-                main_goal.to_string(),
-            )
-            .await;
+            insert_chat(
+                ChatRole::System,
+                "ArcMind AI encountered None command".to_string(),
+            );
+            return run_recovery_cmd(num_thoughts, goal_key, main_goal).await;
         }
     }
 
     // ------ End of Chain of Thoughts ------
+}
+
+async fn run_recovery_cmd(num_thoughts: u16, goal_key: u64, main_goal: String) -> String {
+    let user_result = "The command you provided is invalid. Use a valid command and try again.";
+    insert_chat(ChatRole::User, user_result.to_string());
+
+    let next_command = create_cof_command(main_goal.to_string());
+    return run_chain_of_thoughts(
+        num_thoughts + 1,
+        goal_key,
+        next_command,
+        main_goal.to_string(),
+    )
+    .await;
 }
 
 // Retrieves goal from stable data

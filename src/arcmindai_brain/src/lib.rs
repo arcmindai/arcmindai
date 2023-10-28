@@ -19,6 +19,7 @@ use serde_json::json;
 use ic_cdk::api::time;
 
 mod guards;
+use async_recursion::async_recursion;
 use guards::assert_owner;
 use tiktoken_rs::cl100k_base;
 
@@ -41,11 +42,19 @@ const OPENAI_HOST: &str = "openai-4gbndkvjta-uc.a.run.app";
 const OPENAI_URL: &str = "https://openai-4gbndkvjta-uc.a.run.app";
 const MAX_16K_TOKENS: usize = 15000;
 const MAX_DEFAULT_TOKENS: usize = 8000;
+const MAX_NUM_RETIRES: i8 = 2;
+const GPT_TEMPERATURE: f32 = 0.5;
 
 // entry function for user to ask questions
 #[update(guard = "assert_owner")]
 #[candid_method(update)]
-async fn ask(question: String, custom_gpt_model: Option<String>) -> String {
+#[async_recursion]
+async fn ask(
+    question: String,
+    custom_gpt_model: Option<String>,
+    num_retries: i8,
+    opt_request_id: Option<String>,
+) -> String {
     let openai_api_key = STATE.with(|state| (*state.borrow()).openai_api_key.clone());
 
     // use custom gpt model if provided
@@ -80,7 +89,7 @@ async fn ask(question: String, custom_gpt_model: Option<String>) -> String {
         "gpt-3.5-turbo-16k" => MAX_16K_TOKENS,
         _ => MAX_DEFAULT_TOKENS,
     };
-    let safe_question = truncate_question(question, max_token_limit);
+    let safe_question = truncate_question(question.clone(), max_token_limit);
 
     // lower temperature = more predictable and deterministic response = less creative
     // so that IC replicas can reach consensus on the response
@@ -92,7 +101,7 @@ async fn ask(question: String, custom_gpt_model: Option<String>) -> String {
                 "content": safe_question
             }
         ],
-        "temperature": 0.7
+        "temperature": GPT_TEMPERATURE
     });
 
     let json_utf8: Vec<u8> = request_body.to_string().into_bytes();
@@ -102,7 +111,10 @@ async fn ask(question: String, custom_gpt_model: Option<String>) -> String {
     let canister_id = api::id().to_text();
     let init_canister_id = canister_id.chars().take(5).collect::<String>();
     let now: Timestamp = time();
-    let request_id = format!("{}-{}", init_canister_id, now);
+    let request_id = match opt_request_id {
+        Some(id) => id,
+        None => format!("{}-{}", init_canister_id, now),
+    };
 
     // add requestId to OPENAI_URL
     let final_url = OPENAI_URL.to_string() + "?requestId=" + &request_id;
@@ -122,6 +134,17 @@ async fn ask(question: String, custom_gpt_model: Option<String>) -> String {
             result
         }
         Err((r, m)) => {
+            if num_retries < MAX_NUM_RETIRES {
+                ic_cdk::println!("Retrying ask, num_retries: {}", num_retries);
+                return ask(
+                    question.clone(),
+                    Some(gpt_model),
+                    num_retries + 1,
+                    Some(request_id),
+                )
+                .await;
+            }
+
             let message = format!("The ask resulted into error. RejectionCode: {r:?}, Error: {m}");
             message
         }
