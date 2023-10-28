@@ -1,5 +1,7 @@
-My name is Henry Chan. What is my first name?
-
-Today is 2023-08-20. I was born in 1988-08-16. How old am I?
-
-What is the current weather in Brisbane?
+What is the most popular programming language in 2023?
+What is the current weather in Gold Coast?
+What are the top 5 difference between Dfinity Internet Computer and Ethereum?
+Give me 7 days plan for learning Dfinity Internet Computer
+Give me 7 days plan for learning Rust programming language
+Give me 7 days plan for learning Motoko programming language
+Give me some ideas for the primary and secondary color for an AI startup design system
