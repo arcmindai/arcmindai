@@ -1,5 +1,5 @@
 # To deplopy locally, update IC_NETWORK to local. To deploy to ic, update IC_NETWORK to ic.
-IC_NETWORK=local
+IC_NETWORK=${IC_NETWORK:-local}
 
 OWENR_PRINCIPAL=$(dfx identity --network $IC_NETWORK get-principal)
 

@@ -1,5 +1,5 @@
 # To deplopy locally, update IC_NETWORK to local. To deploy to ic, update IC_NETWORK to ic.
-IC_NETWORK=local
+IC_NETWORK=${IC_NETWORK:-local}
 echo Provisioning on $IC_NETWORK
 
 GPT_MODEL=gpt-4
