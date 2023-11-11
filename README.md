@@ -50,5 +50,4 @@ The `brain` canister could either connect to LLM remotely or locally hosted open
 
 # Author
 
-Henry Chan henry@controlaltdevelop.com  
-Kairic Cheng kairic.cheng@gmail.com
+Henry Chan henry@controlaltdevelop.com
