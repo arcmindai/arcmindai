@@ -57,6 +57,7 @@ pub struct State {
     pub owner: Option<Principal>,
     pub brain_canister: Option<Principal>,
     pub tools_canister: Option<Principal>,
+    pub vector_canister: Option<Principal>,
     pub is_pause_chain_of_thoughts: Option<bool>,
     pub browse_website_gpt_model: Option<String>,
 
@@ -73,6 +74,7 @@ impl Default for State {
             owner: None,
             brain_canister: None,
             tools_canister: None,
+            vector_canister: None,
             is_pause_chain_of_thoughts: Some(false),
             browse_website_gpt_model: None,
             stable_goal_data: init_stable_goal_data(),
@@ -612,6 +614,7 @@ fn init(
     owner: Option<Principal>,
     brain_canister: Option<Principal>,
     tools_canister: Option<Principal>,
+    vector_canister: Option<Principal>,
     browse_website_gpt_model: Option<String>,
 ) {
     let my_owner: Principal = owner.unwrap_or_else(|| api::caller());
@@ -620,6 +623,7 @@ fn init(
             owner: Some(my_owner),
             brain_canister: brain_canister,
             tools_canister: tools_canister,
+            vector_canister: vector_canister,
             is_pause_chain_of_thoughts: Some(false),
             browse_website_gpt_model: browse_website_gpt_model,
             stable_goal_data: init_stable_goal_data(),
@@ -646,6 +650,12 @@ pub fn get_brain_canister() -> Option<Principal> {
 #[candid_method(query)]
 pub fn get_tools_canister() -> Option<Principal> {
     STATE.with(|state| (*state.borrow()).tools_canister)
+}
+
+#[query]
+#[candid_method(query)]
+pub fn get_vector_canister() -> Option<Principal> {
+    STATE.with(|state| (*state.borrow()).vector_canister)
 }
 
 #[update(guard = "assert_owner")]
