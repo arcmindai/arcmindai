@@ -18,9 +18,10 @@ use ic_stable_structures::{writer::Writer, Memory as _, StableVec};
 
 mod datatype;
 use datatype::{
-    ChatDisplayHistory, ChatHistory, ChatRole, Goal, GoalStatus, PromptContext, Timestamp,
-    WebQueryPromptContext, PROMPT_CMD_BROWSE_WEBSITE, PROMPT_CMD_DO_NOTHING, PROMPT_CMD_GOOGLE,
-    PROMPT_CMD_SHUTDOWN, PROMPT_CMD_START_AGENT, PROMPT_CMD_WRITE_FILE_AND_SHUTDOWN,
+    ChatDisplayHistory, ChatHistory, ChatRole, Embeddings, Goal, GoalStatus, PromptContext,
+    Timestamp, WebQueryPromptContext, PROMPT_CMD_BROWSE_WEBSITE, PROMPT_CMD_DO_NOTHING,
+    PROMPT_CMD_GOOGLE, PROMPT_CMD_SHUTDOWN, PROMPT_CMD_START_AGENT,
+    PROMPT_CMD_WRITE_FILE_AND_SHUTDOWN,
 };
 
 mod prompts;
@@ -338,6 +339,11 @@ async fn run_chain_of_thoughts(
             let google_cmd_history = "Command google returned: Result saved successfully.";
             insert_chat(ChatRole::System, google_cmd_history.to_string());
 
+            // generate embeddings
+            let embeddings: Embeddings = generate_embeddings(result.clone()).await.unwrap();
+
+            // TODO - save embeddings to vectordb
+
             let next_command = create_cof_command(main_goal.to_string());
             return run_chain_of_thoughts(
                 num_thoughts + 1,
@@ -372,6 +378,11 @@ async fn run_chain_of_thoughts(
             let browse_website_cmd_history =
                 "Command browse_website returned -> Result saved successfully.";
             insert_chat(ChatRole::System, browse_website_cmd_history.to_string());
+
+            // generate embeddings
+            let embeddings: Embeddings = generate_embeddings(result.clone()).await.unwrap();
+
+            // TODO - save embeddings to vectordb
 
             let next_command = create_cof_command(main_goal.to_string());
             return run_chain_of_thoughts(
@@ -455,6 +466,20 @@ async fn run_recovery_cmd(num_thoughts: u16, goal_key: u64, main_goal: String) -
         main_goal.to_string(),
     )
     .await;
+}
+
+async fn generate_embeddings(content: String) -> Result<Embeddings, String> {
+    let brain_canister: Principal = STATE.with(|state| (*state.borrow()).brain_canister.unwrap());
+    let num_retries: i8 = 0;
+    let (result,): (Result<Embeddings, String>,) = ic_cdk::api::call::call(
+        brain_canister,
+        "generate_embeddings",
+        (content, num_retries),
+    )
+    .await
+    .expect("call to generate_embeddings failed");
+
+    return result;
 }
 
 // Retrieves goal from stable data

@@ -17,6 +17,8 @@ pub const PROMPT_CMD_SHUTDOWN: &str = "shutdown";
 pub const TOP_CMD_AGENT_NAME: &str = "ArcMind";
 pub const TOP_CMD_AGENT_TASK: &str = "knowing the greatest knowledge of the world";
 
+pub type Embeddings = Vec<f32>;
+
 #[derive(Serialize)]
 pub struct PromptContext {
     pub agent_name: String,
