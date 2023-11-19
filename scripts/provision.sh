@@ -26,9 +26,12 @@ dfx deploy --network $IC_NETWORK arcmindai_tools --argument "(opt principal \"$O
 
 TOOLS_PRINCIPAL=$(dfx canister --network $IC_NETWORK id arcmindai_tools)
 
+# Get vector canister id
+echo VECTOR_PRINCIPAL $VECTOR_PRINCIPAL
+
 # Deploy controller canister
-echo Deploying controller canister with owner $OWENR_PRINCIPAL, brain $BRAIN_PRINCIPAL, tools $TOOLS_PRINCIPAL and browse_website_gpt_model $BROWSE_WEBSITE_GPT_MODEL on $IC_NETWORK
-dfx deploy --network $IC_NETWORK arcmindai_controller --argument "(opt principal \"$OWENR_PRINCIPAL\", opt principal \"$BRAIN_PRINCIPAL\", opt principal \"$TOOLS_PRINCIPAL\", opt \"$BROWSE_WEBSITE_GPT_MODEL\")"
+echo Deploying controller canister with owner $OWENR_PRINCIPAL, brain $BRAIN_PRINCIPAL, tools $TOOLS_PRINCIPAL, vector $VECTOR_PRINCIPAL and browse_website_gpt_model $BROWSE_WEBSITE_GPT_MODEL on $IC_NETWORK
+dfx deploy --network $IC_NETWORK arcmindai_controller --argument "(opt principal \"$OWENR_PRINCIPAL\", opt principal \"$BRAIN_PRINCIPAL\", opt principal \"$TOOLS_PRINCIPAL\", opt principal \"$VECTOR_PRINCIPAL\", opt \"$BROWSE_WEBSITE_GPT_MODEL\")"
 echo Controller Owner:
 dfx canister --network $IC_NETWORK call arcmindai_controller get_owner
 

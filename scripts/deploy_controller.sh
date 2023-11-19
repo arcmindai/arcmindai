@@ -7,5 +7,5 @@ ToolsPrincipal=$(dfx canister --network $IC_NETWORK id arcmindai_tools)
 BROWSE_WEBSITE_GPT_MODEL=gpt-3.5-turbo-16k
 
 # Deploy controller canister
-echo Deploying controller canister with owner=$OwnerPrincipal, brain=$BrainPrincipal, browse_website_gpt_model=$BROWSE_WEBSITE_GPT_MODEL and tools=$ToolsPrincipal on $IC_NETWORK
-dfx deploy --network $IC_NETWORK arcmindai_controller --argument "(opt principal \"$OwnerPrincipal\", opt principal \"$BrainPrincipal\", opt principal \"$ToolsPrincipal\", opt \"$BROWSE_WEBSITE_GPT_MODEL\")"
+echo Deploying controller canister with owner=$OwnerPrincipal, brain=$BrainPrincipal, browse_website_gpt_model=$BROWSE_WEBSITE_GPT_MODEL, tools=$ToolsPrincipal, VECTOR_PRINCIPAL=$VECTOR_PRINCIPAL on $IC_NETWORK
+dfx deploy --network $IC_NETWORK arcmindai_controller --argument "(opt principal \"$OwnerPrincipal\", opt principal \"$BrainPrincipal\", opt principal \"$ToolsPrincipal\", opt principal \"$VECTOR_PRINCIPAL\", opt \"$BROWSE_WEBSITE_GPT_MODEL\")"
