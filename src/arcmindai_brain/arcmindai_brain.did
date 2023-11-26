@@ -1,5 +1,7 @@
+type Result = variant { Ok : vec float32; Err : text };
 service : (opt principal, text, text) -> {
   ask : (text, opt text, int8, opt text) -> (text);
+  generate_embeddings : (text, int8, opt text) -> (Result);
   get_owner : () -> (opt principal) query;
   update_owner : (principal) -> ();
 }
