@@ -9,11 +9,11 @@ pub const OPENAI_EMBEDDINGS_HOST: &str = "openaiembeddings-4gbndkvjta-uc.a.run.a
 
 pub const OPENAI_EMBEDDINGS_MODEL: &str = "text-embedding-ada-002";
 
-pub fn create_header(openai_api_key: String) -> Vec<HttpHeader> {
+pub fn create_header(openai_api_key: String, host: String) -> Vec<HttpHeader> {
     let request_headers = vec![
         HttpHeader {
             name: "Host".to_string(),
-            value: format!("{OPENAI_HOST}:443"),
+            value: format!("{host}:443"),
         },
         HttpHeader {
             name: "User-Agent".to_string(),
@@ -33,13 +33,16 @@ pub fn create_header(openai_api_key: String) -> Vec<HttpHeader> {
 }
 
 pub fn generate_request_id(opt_request_id: Option<String>) -> String {
-    // extract the first 5 characters from the request_id
-    let canister_id = api::id().to_text();
-    let init_canister_id = canister_id.chars().take(5).collect::<String>();
-    let now: Timestamp = time();
     let request_id = match opt_request_id {
         Some(id) => id,
-        None => format!("{}-{}", init_canister_id, now),
+        None => {
+            // extract the first 5 characters from the canister id
+            let canister_id = api::id().to_text();
+            let init_canister_id = canister_id.chars().take(5).collect::<String>();
+            let now: Timestamp = time();
+
+            format!("{}-{}", init_canister_id, now)
+        }
     };
 
     return request_id;

@@ -70,6 +70,14 @@ async fn ask(
         "gpt-3.5-turbo-16k" => MAX_16K_TOKENS,
         _ => MAX_DEFAULT_TOKENS,
     };
+
+    // log gpt_model and max_token_limit
+    ic_cdk::println!(
+        "gpt_model: {}, max_token_limit: {}",
+        gpt_model,
+        max_token_limit
+    );
+
     let safe_question = truncate_question(question.clone(), max_token_limit);
 
     // lower temperature = more predictable and deterministic response = less creative
@@ -86,21 +94,21 @@ async fn ask(
     });
 
     let json_utf8: Vec<u8> = request_body.to_string().into_bytes();
-    let request_body: Option<Vec<u8>> = Some(json_utf8);
+    let request_body_json: Option<Vec<u8>> = Some(json_utf8);
     let request_id = generate_request_id(opt_request_id);
 
     // add requestId to OPENAI_URL
     let openai_url = "https://".to_string() + OPENAI_HOST;
     let final_url = openai_url + "?requestId=" + &request_id;
     let openai_api_key = STATE.with(|state| (*state.borrow()).openai_api_key.clone());
-    let headers = create_header(openai_api_key);
+    let headers = create_header(openai_api_key, OPENAI_HOST.to_string());
 
     let request = CanisterHttpRequestArgument {
         url: final_url.to_string(),
         max_response_bytes: None,
         method: HttpMethod::POST,
         headers: headers,
-        body: request_body,
+        body: request_body_json,
         transform: Some(TransformContext::new(
             transform_openai_chat_completion,
             vec![],
@@ -183,7 +191,7 @@ pub async fn generate_embeddings(
     let openai_url = "https://".to_string() + OPENAI_EMBEDDINGS_HOST;
     let final_url = openai_url + "?requestId=" + &request_id;
     let openai_api_key = STATE.with(|state| (*state.borrow()).openai_api_key.clone());
-    let headers = create_header(openai_api_key);
+    let headers = create_header(openai_api_key, OPENAI_EMBEDDINGS_HOST.to_string());
 
     let request = CanisterHttpRequestArgument {
         url: final_url.to_string(),
@@ -191,18 +199,17 @@ pub async fn generate_embeddings(
         method: HttpMethod::POST,
         headers: headers,
         body: request_body_json,
-        transform: None,
+        transform: Some(TransformContext::new(transform_openai_embeddings, vec![])),
     };
 
     match http_request(request).await {
         Ok((response,)) => {
             let res_str = String::from_utf8(response.body.clone())
                 .expect("Transformed response is not UTF-8 encoded.");
-            let json_str = res_str.replace("\n", "");
 
-            let openai_result = serde_json::from_str(json_str.as_str());
+            let openai_result = serde_json::from_str(res_str.as_str());
             if openai_result.is_err() {
-                let mesg = format!("Invalid JSON str = {:?}", json_str);
+                let mesg = format!("Invalid JSON str = {:?}", res_str);
                 return Err(mesg);
             }
 
@@ -225,6 +232,24 @@ pub async fn generate_embeddings(
     }
 }
 
+#[query]
+fn transform_openai_embeddings(args: TransformArgs) -> HttpResponse {
+    let mut res = HttpResponse {
+        status: args.response.status.clone(),
+        ..Default::default()
+    };
+
+    if res.status == 200 {
+        let res_str = String::from_utf8(args.response.body.clone())
+            .expect("Transformed response is not UTF-8 encoded.");
+        let json_str = res_str.replace("\n", "");
+        res.body = json_str.as_bytes().to_vec();
+        return res;
+    }
+
+    ic_cdk::api::print(format!("Received an error from jsonropc: err = {:?}", args));
+    return res;
+}
 // ---------------------- Supporting Functions ----------------------
 
 // Controller canister must be created with principal
