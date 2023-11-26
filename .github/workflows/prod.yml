@@ -34,6 +34,7 @@ jobs:
           scripts/deploy_controller.sh
         env:
           IC_NETWORK: ic
+          VECTOR_PRINCIPAL: ${{ secrets.VECTOR_PRINCIPAL }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GOOGLE_SEARCH_ENGINE_ID: ${{ secrets.GOOGLE_SEARCH_ENGINE_ID }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
