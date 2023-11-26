@@ -7,6 +7,8 @@ use ic_stable_structures::{BoundedStorable, Storable};
 
 const MAX_VALUE_SIZE: u32 = 1024 * 1024;
 
+pub const VEC_SEARCH_TOP_K_NN: usize = 3;
+
 pub const PROMPT_CMD_GOOGLE: &str = "google";
 pub const PROMPT_CMD_BROWSE_WEBSITE: &str = "browse_website";
 pub const PROMPT_CMD_START_AGENT: &str = "start_agent";
@@ -18,6 +20,22 @@ pub const TOP_CMD_AGENT_NAME: &str = "ArcMind";
 pub const TOP_CMD_AGENT_TASK: &str = "knowing the greatest knowledge of the world";
 
 pub type Embeddings = Vec<f32>;
+
+#[derive(CandidType, Deserialize, Serialize)]
+pub enum VecQuery {
+    Embeddings(Vec<f32>),
+}
+
+#[derive(CandidType, Deserialize, Serialize)]
+pub struct VecDoc {
+    pub content: String,
+    pub embeddings: Embeddings,
+}
+
+#[derive(CandidType, Deserialize, Serialize)]
+pub struct PlainDoc {
+    pub content: String,
+}
 
 #[derive(Serialize)]
 pub struct PromptContext {
