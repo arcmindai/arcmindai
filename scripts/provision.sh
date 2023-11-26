@@ -3,7 +3,7 @@ IC_NETWORK=${IC_NETWORK:-local}
 echo Provisioning on $IC_NETWORK
 
 GPT_MODEL=gpt-4
-BROWSE_WEBSITE_GPT_MODEL=gpt-3.5-turbo-16k
+BROWSE_WEBSITE_GPT_MODEL=gpt-3.5-turbo-1106
 
 # To run this script, set following Env Vars in your terminal or uncomment below to set it
 # OPENAI_API_KEY="UPDATE_ME"
@@ -18,16 +18,10 @@ dfx deploy --network $IC_NETWORK arcmindai_brain --argument "(opt principal \"$O
 BRAIN_PRINCIPAL=$(dfx canister --network $IC_NETWORK id arcmindai_brain)
 
 # Deploy tools canister
-GOOGLE_API_KEY=AIzaSyAh2iDZK-FtrGqqT3oXQnV2BYiKd1VPsWY
-GOOGLE_SEARCH_ENGINE_ID=47e254984dbb341e2
-
 echo Deploying tools canister with owner $OWENR_PRINCIPAL on $IC_NETWORK
 dfx deploy --network $IC_NETWORK arcmindai_tools --argument "(opt principal \"$OWENR_PRINCIPAL\", \"$GOOGLE_API_KEY\", \"$GOOGLE_SEARCH_ENGINE_ID\")"
 
 TOOLS_PRINCIPAL=$(dfx canister --network $IC_NETWORK id arcmindai_tools)
-
-# Get vector canister id
-echo VECTOR_PRINCIPAL $VECTOR_PRINCIPAL
 
 # Deploy controller canister
 echo Deploying controller canister with owner $OWENR_PRINCIPAL, brain $BRAIN_PRINCIPAL, tools $TOOLS_PRINCIPAL, vector $VECTOR_PRINCIPAL and browse_website_gpt_model $BROWSE_WEBSITE_GPT_MODEL on $IC_NETWORK

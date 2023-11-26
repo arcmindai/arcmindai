@@ -29,3 +29,7 @@ jobs:
         run: scripts/provision.sh
         env:
           IC_NETWORK: local
+          VECTOR_PRINCIPAL: ${{ secrets.VECTOR_PRINCIPAL }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE_SEARCH_ENGINE_ID: ${{ secrets.GOOGLE_SEARCH_ENGINE_ID }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
