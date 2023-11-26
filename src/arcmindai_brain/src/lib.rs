@@ -1,7 +1,7 @@
 use std::{cell::RefCell, ops::Deref};
 
 use ic_cdk::api::management_canister::http_request::{
-    http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, HttpResponse, TransformArgs,
+    http_request, CanisterHttpRequestArgument, HttpMethod, HttpResponse, TransformArgs,
     TransformContext,
 };
 
@@ -16,14 +16,21 @@ use ic_cdk::{
 use serde::Serialize;
 use serde_json::json;
 
-use ic_cdk::api::time;
+mod datatype;
+use datatype::{Embeddings, OpenAIEmbeddingResult, OpenAIResult};
 
 mod guards;
 use async_recursion::async_recursion;
 use guards::assert_owner;
-use tiktoken_rs::cl100k_base;
 
-type Timestamp = u64;
+mod tokenutil;
+use tokenutil::{truncate_question, MAX_16K_TOKENS};
+
+mod httputil;
+use httputil::{
+    create_header, generate_request_id, OPENAI_EMBEDDINGS_HOST, OPENAI_EMBEDDINGS_MODEL,
+    OPENAI_HOST,
+};
 
 #[derive(Default, CandidType, Serialize, Deserialize)]
 pub struct State {
@@ -38,9 +45,6 @@ thread_local! {
 }
 
 // ---------------------- ArcMind AI Agent ----------------------
-const OPENAI_HOST: &str = "openai-4gbndkvjta-uc.a.run.app";
-const OPENAI_URL: &str = "https://openai-4gbndkvjta-uc.a.run.app";
-const MAX_16K_TOKENS: usize = 15000;
 const MAX_DEFAULT_TOKENS: usize = 8000;
 const MAX_NUM_RETIRES: i8 = 2;
 const GPT_TEMPERATURE: f32 = 0.5;
@@ -55,40 +59,25 @@ async fn ask(
     num_retries: i8,
     opt_request_id: Option<String>,
 ) -> String {
-    let openai_api_key = STATE.with(|state| (*state.borrow()).openai_api_key.clone());
-
     // use custom gpt model if provided
     let gpt_model = match custom_gpt_model {
         Some(model) => model,
         None => STATE.with(|state| (*state.borrow()).gpt_model.clone()),
     };
 
-    ic_cdk::api::print(format!("ask model: {:?}", gpt_model));
-
-    let request_headers = vec![
-        HttpHeader {
-            name: "Host".to_string(),
-            value: format!("{OPENAI_HOST}:443"),
-        },
-        HttpHeader {
-            name: "User-Agent".to_string(),
-            value: "ArcMind AI Agent".to_string(),
-        },
-        HttpHeader {
-            name: "Content-Type".to_string(),
-            value: "application/json".to_string(),
-        },
-        HttpHeader {
-            name: "Authorization".to_string(),
-            value: format!("Bearer {openai_api_key}").to_string(),
-        },
-    ];
-
     // Truncate question if reaching the max token limit of the model
     let max_token_limit = match gpt_model.as_str() {
         "gpt-3.5-turbo-16k" => MAX_16K_TOKENS,
         _ => MAX_DEFAULT_TOKENS,
     };
+
+    // log gpt_model and max_token_limit
+    ic_cdk::println!(
+        "gpt_model: {}, max_token_limit: {}",
+        gpt_model,
+        max_token_limit
+    );
+
     let safe_question = truncate_question(question.clone(), max_token_limit);
 
     // lower temperature = more predictable and deterministic response = less creative
@@ -105,26 +94,25 @@ async fn ask(
     });
 
     let json_utf8: Vec<u8> = request_body.to_string().into_bytes();
-    let request_body: Option<Vec<u8>> = Some(json_utf8);
-
-    // extract the first 5 characters from the request_id
-    let canister_id = api::id().to_text();
-    let init_canister_id = canister_id.chars().take(5).collect::<String>();
-    let now: Timestamp = time();
-    let request_id = match opt_request_id {
-        Some(id) => id,
-        None => format!("{}-{}", init_canister_id, now),
-    };
+    let request_body_json: Option<Vec<u8>> = Some(json_utf8);
+    let request_id = generate_request_id(opt_request_id);
 
     // add requestId to OPENAI_URL
-    let final_url = OPENAI_URL.to_string() + "?requestId=" + &request_id;
+    let openai_url = "https://".to_string() + OPENAI_HOST;
+    let final_url = openai_url + "?requestId=" + &request_id;
+    let openai_api_key = STATE.with(|state| (*state.borrow()).openai_api_key.clone());
+    let headers = create_header(openai_api_key, OPENAI_HOST.to_string());
+
     let request = CanisterHttpRequestArgument {
         url: final_url.to_string(),
         max_response_bytes: None,
         method: HttpMethod::POST,
-        headers: request_headers,
-        body: request_body,
-        transform: Some(TransformContext::new(transform, vec![])),
+        headers: headers,
+        body: request_body_json,
+        transform: Some(TransformContext::new(
+            transform_openai_chat_completion,
+            vec![],
+        )),
     };
 
     match http_request(request).await {
@@ -151,62 +139,8 @@ async fn ask(
     }
 }
 
-fn truncate_question(question: String, max_token_limit: usize) -> String {
-    // check no. of tokens again
-    let bpe = cl100k_base().unwrap();
-    let tokens = bpe.encode_with_special_tokens(question.as_str());
-    let tokens_len = tokens.len();
-    ic_cdk::println!("Token count: : {}", tokens_len);
-
-    if tokens_len > max_token_limit {
-        let safe_question = question
-            .chars()
-            .take(question.len() / 2)
-            .collect::<String>();
-        ic_cdk::println!(
-            "tokens_len reached limit {}!! Question is truncated to: \n{}",
-            MAX_16K_TOKENS,
-            safe_question
-        );
-
-        return truncate_question(safe_question, max_token_limit);
-    }
-
-    return question;
-}
-
-#[derive(serde::Serialize, Deserialize)]
-struct OpenAIResult {
-    id: String,
-    object: String,
-    created: u32,
-    model: String,
-    choices: Vec<OpenAIResultChoices>,
-    usage: OpenAIResultUsage,
-}
-
-#[derive(serde::Serialize, Deserialize)]
-struct OpenAIResultChoices {
-    index: u8,
-    message: OpenAIResultMessage,
-    finish_reason: String,
-}
-
-#[derive(serde::Serialize, Deserialize)]
-struct OpenAIResultMessage {
-    role: String,
-    content: String,
-}
-
-#[derive(serde::Serialize, Deserialize)]
-struct OpenAIResultUsage {
-    prompt_tokens: u32,
-    completion_tokens: u32,
-    total_tokens: u32,
-}
-
 #[query]
-fn transform(args: TransformArgs) -> HttpResponse {
+fn transform_openai_chat_completion(args: TransformArgs) -> HttpResponse {
     let mut res = HttpResponse {
         status: args.response.status.clone(),
         ..Default::default()
@@ -216,8 +150,6 @@ fn transform(args: TransformArgs) -> HttpResponse {
         let res_str = String::from_utf8(args.response.body.clone())
             .expect("Transformed response is not UTF-8 encoded.");
         let json_str = res_str.replace("\n", "");
-
-        ic_cdk::api::print(format!("JSON str = {:?}", json_str));
 
         let openai_result = serde_json::from_str(json_str.as_str());
         if openai_result.is_err() {
@@ -237,6 +169,87 @@ fn transform(args: TransformArgs) -> HttpResponse {
     return res;
 }
 
+// entry function for user to ask questions
+#[update(guard = "assert_owner")]
+#[candid_method(update)]
+#[async_recursion]
+pub async fn generate_embeddings(
+    content: String,
+    num_retries: i8,
+    opt_request_id: Option<String>,
+) -> Result<Embeddings, String> {
+    let request_body = json!({
+        "input": content,
+        "model": OPENAI_EMBEDDINGS_MODEL,
+    });
+
+    let json_utf8: Vec<u8> = request_body.to_string().into_bytes();
+    let request_body_json: Option<Vec<u8>> = Some(json_utf8);
+    let request_id = generate_request_id(opt_request_id);
+
+    // add requestId to OPENAI_URL
+    let openai_url = "https://".to_string() + OPENAI_EMBEDDINGS_HOST;
+    let final_url = openai_url + "?requestId=" + &request_id;
+    let openai_api_key = STATE.with(|state| (*state.borrow()).openai_api_key.clone());
+    let headers = create_header(openai_api_key, OPENAI_EMBEDDINGS_HOST.to_string());
+
+    let request = CanisterHttpRequestArgument {
+        url: final_url.to_string(),
+        max_response_bytes: None,
+        method: HttpMethod::POST,
+        headers: headers,
+        body: request_body_json,
+        transform: Some(TransformContext::new(transform_openai_embeddings, vec![])),
+    };
+
+    match http_request(request).await {
+        Ok((response,)) => {
+            let res_str = String::from_utf8(response.body.clone())
+                .expect("Transformed response is not UTF-8 encoded.");
+
+            let openai_result = serde_json::from_str(res_str.as_str());
+            if openai_result.is_err() {
+                let mesg = format!("Invalid JSON str = {:?}", res_str);
+                return Err(mesg);
+            }
+
+            let openai_body: OpenAIEmbeddingResult = openai_result.unwrap();
+            let embedding = &openai_body.data[0].embedding;
+            return Ok(embedding.clone());
+        }
+        Err((r, m)) => {
+            if num_retries < MAX_NUM_RETIRES {
+                ic_cdk::println!("Retrying ask, num_retries: {}", num_retries);
+                return generate_embeddings(content.clone(), num_retries + 1, Some(request_id))
+                    .await;
+            }
+
+            let message = format!(
+                "The generate_embeddings resulted into error. RejectionCode: {r:?}, Error: {m}"
+            );
+            return Err(message);
+        }
+    }
+}
+
+#[query]
+fn transform_openai_embeddings(args: TransformArgs) -> HttpResponse {
+    let mut res = HttpResponse {
+        status: args.response.status.clone(),
+        ..Default::default()
+    };
+
+    if res.status == 200 {
+        let res_str = String::from_utf8(args.response.body.clone())
+            .expect("Transformed response is not UTF-8 encoded.");
+        let json_str = res_str.replace("\n", "");
+        res.body = json_str.as_bytes().to_vec();
+        return res;
+    }
+
+    ic_cdk::api::print(format!("Received an error from jsonropc: err = {:?}", args));
+    return res;
+}
 // ---------------------- Supporting Functions ----------------------
 
 // Controller canister must be created with principal
@@ -292,6 +305,7 @@ fn post_upgrade() {
 // ---------------------- Candid declarations did file generator ----------------------
 #[cfg(test)]
 mod tests {
+    use crate::datatype::Embeddings;
     use candid::{export_service, Principal};
 
     #[test]

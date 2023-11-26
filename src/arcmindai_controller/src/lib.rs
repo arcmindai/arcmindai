@@ -11,21 +11,23 @@ use time::OffsetDateTime;
 
 // Stable Structures
 use ic_cdk::api::time;
-extern crate tinytemplate;
 
 use ic_cdk_timers::TimerId;
 use ic_stable_structures::{writer::Writer, Memory as _, StableVec};
 
 mod datatype;
 use datatype::{
-    ChatDisplayHistory, ChatHistory, ChatRole, Goal, GoalStatus, PromptContext, Timestamp,
-    WebQueryPromptContext, PROMPT_CMD_BROWSE_WEBSITE, PROMPT_CMD_DO_NOTHING, PROMPT_CMD_GOOGLE,
-    PROMPT_CMD_SHUTDOWN, PROMPT_CMD_START_AGENT, PROMPT_CMD_WRITE_FILE_AND_SHUTDOWN,
+    ChatDisplayHistory, ChatHistory, ChatRole, Embeddings, Goal, GoalStatus, PlainDoc,
+    PromptContext, Timestamp, VecDoc, VecQuery, WebQueryPromptContext, PROMPT_CMD_BROWSE_WEBSITE,
+    PROMPT_CMD_DO_NOTHING, PROMPT_CMD_GOOGLE, PROMPT_CMD_SHUTDOWN, PROMPT_CMD_START_AGENT,
+    PROMPT_CMD_WRITE_FILE_AND_SHUTDOWN, TOP_CMD_AGENT_NAME, TOP_CMD_AGENT_TASK,
+    VEC_SEARCH_TOP_K_NN,
 };
 
 mod prompts;
 use prompts::{COF_PROMPT, RESPONSE_FORMAT, WEB_QUERY_PROMPT};
 
+extern crate tinytemplate;
 use tinytemplate::TinyTemplate;
 
 // Candid
@@ -45,8 +47,6 @@ use memory::Memory;
 
 use async_recursion::async_recursion;
 
-use datatype::{TOP_CMD_AGENT_NAME, TOP_CMD_AGENT_TASK};
-
 const MIN_INTERVAL_SECS: u64 = 3;
 const RECENT_CHAT_HISTORY: usize = 40;
 const DATE_TIME_FORMAT: &str = "[year]-[month]-[day] [hour]:[minute]:[second]";
@@ -57,6 +57,7 @@ pub struct State {
     pub owner: Option<Principal>,
     pub brain_canister: Option<Principal>,
     pub tools_canister: Option<Principal>,
+    pub vector_canister: Option<Principal>,
     pub is_pause_chain_of_thoughts: Option<bool>,
     pub browse_website_gpt_model: Option<String>,
 
@@ -73,6 +74,7 @@ impl Default for State {
             owner: None,
             brain_canister: None,
             tools_canister: None,
+            vector_canister: None,
             is_pause_chain_of_thoughts: Some(false),
             browse_website_gpt_model: None,
             stable_goal_data: init_stable_goal_data(),
@@ -105,18 +107,6 @@ static INITIAL_CANISTER_BALANCE: AtomicU64 = AtomicU64::new(0);
 static CYCLES_USED: AtomicU64 = AtomicU64::new(0);
 
 // ---------------------- ArcMind AI Agent ----------------------
-// entry function for user to ask questions
-async fn start_agent(question: String, gpt_model: Option<String>) -> String {
-    let brain_canister: Principal = STATE.with(|state| (*state.borrow()).brain_canister.unwrap());
-    let num_retries: i8 = 0;
-    let (result,): (String,) =
-        ic_cdk::api::call::call(brain_canister, "ask", (question, gpt_model, num_retries))
-            .await
-            .expect("call to ask failed");
-
-    return result;
-}
-
 async fn process_new_goals() {
     let len = STATE.with(|s| s.borrow().stable_goal_data.len());
     let mut i = 0;
@@ -151,7 +141,7 @@ async fn process_new_goals() {
 fn create_cof_command(prompt: String) -> String {
     let cof_input = json!({
       "command": {
-          "name": "start_agent",
+          "name": PROMPT_CMD_START_AGENT,
           "args": {
               "name": TOP_CMD_AGENT_NAME,
               "task": TOP_CMD_AGENT_TASK,
@@ -167,6 +157,7 @@ fn create_prompt(
     agent_task: String,
     agent_goal: String,
     history: Vec<ChatHistory>,
+    top_lt_memory: Option<Vec<PlainDoc>>,
 ) -> String {
     let mut tt = TinyTemplate::new();
     let template_name = "prompt";
@@ -200,9 +191,17 @@ fn create_prompt(
         i += 1;
     }
 
-    let past_events = serde_json::to_string(&recent_display_history).unwrap();
+    for doc in top_lt_memory.unwrap() {
+        let chat_display = ChatDisplayHistory {
+            content: doc.content,
+            role: ChatRole::System,
+            created_at_human: "".to_string(),
+        };
 
-    ic_cdk::println!("past_events length: {}", past_events.len());
+        recent_display_history.push(chat_display);
+    }
+
+    let past_events = serde_json::to_string(&recent_display_history).unwrap();
 
     let context = PromptContext {
         agent_name: agent_name,
@@ -301,12 +300,26 @@ async fn run_chain_of_thoughts(
                 .await;
             }
 
+            // get the first chatdisplayhistory from recent_display_history
+            let recent_display_history = get_chathistory();
+            let first_chat_display_history = recent_display_history.first().unwrap();
+
+            // generate embeddings using first_chat_display_history.content
+            let embeddings: Embeddings =
+                generate_embeddings(first_chat_display_history.content.clone())
+                    .await
+                    .unwrap();
+
+            // load relevant long term memory from vector_db canister
+            let top_lt_memory: Option<Vec<PlainDoc>> = search_vecdoc(embeddings).await;
+
             // create full prompt
             let full_prompt = create_prompt(
                 name.unwrap().to_string(),
                 task.unwrap().to_string(),
                 prompt.unwrap().to_string(),
-                get_chathistory(),
+                recent_display_history,
+                top_lt_memory,
             );
 
             // insert result into chat history
@@ -335,6 +348,12 @@ async fn run_chain_of_thoughts(
 
             let google_cmd_history = "Command google returned: Result saved successfully.";
             insert_chat(ChatRole::System, google_cmd_history.to_string());
+
+            // generate embeddings
+            let embeddings: Embeddings = generate_embeddings(result.clone()).await.unwrap();
+
+            // save embeddings to vectordb
+            add_vecdoc(result.clone(), embeddings).await;
 
             let next_command = create_cof_command(main_goal.to_string());
             return run_chain_of_thoughts(
@@ -370,6 +389,12 @@ async fn run_chain_of_thoughts(
             let browse_website_cmd_history =
                 "Command browse_website returned -> Result saved successfully.";
             insert_chat(ChatRole::System, browse_website_cmd_history.to_string());
+
+            // generate embeddings
+            let embeddings: Embeddings = generate_embeddings(result.clone()).await.unwrap();
+
+            // save embeddings to vectordb
+            add_vecdoc(result.clone(), embeddings).await;
 
             let next_command = create_cof_command(main_goal.to_string());
             return run_chain_of_thoughts(
@@ -453,6 +478,58 @@ async fn run_recovery_cmd(num_thoughts: u16, goal_key: u64, main_goal: String) -
         main_goal.to_string(),
     )
     .await;
+}
+
+async fn start_agent(question: String, gpt_model: Option<String>) -> String {
+    let brain_canister: Principal = STATE.with(|state| (*state.borrow()).brain_canister.unwrap());
+    let num_retries: i8 = 0;
+    let (result,): (String,) =
+        ic_cdk::api::call::call(brain_canister, "ask", (question, gpt_model, num_retries))
+            .await
+            .expect("call to ask failed");
+
+    return result;
+}
+
+async fn add_vecdoc(content: String, embeddings: Embeddings) -> String {
+    let vector_canister: Principal = STATE.with(|state| (*state.borrow()).vector_canister.unwrap());
+
+    let vec_doc = VecDoc {
+        content: content.clone(),
+        embeddings: embeddings.clone(),
+    };
+
+    let (result,): (String,) = ic_cdk::api::call::call(vector_canister, "add", (vec_doc,))
+        .await
+        .expect("call to vector_canister.add failed");
+
+    return result;
+}
+
+async fn search_vecdoc(embeddings: Embeddings) -> Option<Vec<PlainDoc>> {
+    let query: VecQuery = VecQuery::Embeddings(embeddings);
+    let vector_canister: Principal = STATE.with(|state| (*state.borrow()).vector_canister.unwrap());
+
+    let (result,): (Option<Vec<PlainDoc>>,) =
+        ic_cdk::api::call::call(vector_canister, "search", (query, VEC_SEARCH_TOP_K_NN))
+            .await
+            .expect("call to vector_canister.search failed");
+
+    return result;
+}
+
+async fn generate_embeddings(content: String) -> Result<Embeddings, String> {
+    let brain_canister: Principal = STATE.with(|state| (*state.borrow()).brain_canister.unwrap());
+    let num_retries: i8 = 0;
+    let (result,): (Result<Embeddings, String>,) = ic_cdk::api::call::call(
+        brain_canister,
+        "generate_embeddings",
+        (content, num_retries),
+    )
+    .await
+    .expect("call to generate_embeddings failed");
+
+    return result;
 }
 
 // Retrieves goal from stable data
@@ -612,6 +689,7 @@ fn init(
     owner: Option<Principal>,
     brain_canister: Option<Principal>,
     tools_canister: Option<Principal>,
+    vector_canister: Option<Principal>,
     browse_website_gpt_model: Option<String>,
 ) {
     let my_owner: Principal = owner.unwrap_or_else(|| api::caller());
@@ -620,6 +698,7 @@ fn init(
             owner: Some(my_owner),
             brain_canister: brain_canister,
             tools_canister: tools_canister,
+            vector_canister: vector_canister,
             is_pause_chain_of_thoughts: Some(false),
             browse_website_gpt_model: browse_website_gpt_model,
             stable_goal_data: init_stable_goal_data(),
@@ -646,6 +725,12 @@ pub fn get_brain_canister() -> Option<Principal> {
 #[candid_method(query)]
 pub fn get_tools_canister() -> Option<Principal> {
     STATE.with(|state| (*state.borrow()).tools_canister)
+}
+
+#[query]
+#[candid_method(query)]
+pub fn get_vector_canister() -> Option<Principal> {
+    STATE.with(|state| (*state.borrow()).vector_canister)
 }
 
 #[update(guard = "assert_owner")]

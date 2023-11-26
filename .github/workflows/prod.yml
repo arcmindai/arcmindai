@@ -21,7 +21,7 @@ jobs:
       - name: Install DFX
         run: echo y | sh -ci "$(curl -fsSL https://sdk.dfinity.org/install.sh)"
         env:
-          DFX_VERSION: 0.15.0
+          DFX_VERSION: 0.15.1
       - name: Add DFX identity and wallets
         run: ./scripts/add-ic-identity.sh
         env:
@@ -34,6 +34,7 @@ jobs:
           scripts/deploy_controller.sh
         env:
           IC_NETWORK: ic
+          VECTOR_PRINCIPAL: ${{ secrets.VECTOR_PRINCIPAL }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GOOGLE_SEARCH_ENGINE_ID: ${{ secrets.GOOGLE_SEARCH_ENGINE_ID }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

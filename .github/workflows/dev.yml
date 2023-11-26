@@ -23,9 +23,13 @@ jobs:
       - name: Install DFX
         run: echo y | sh -ci "$(curl -fsSL https://sdk.dfinity.org/install.sh)"
         env:
-          DFX_VERSION: 0.15.0
+          DFX_VERSION: 0.15.1
       - run: dfx start --clean --background
       - name: Build and Deploy locally
         run: scripts/provision.sh
         env:
           IC_NETWORK: local
+          VECTOR_PRINCIPAL: ${{ secrets.VECTOR_PRINCIPAL }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE_SEARCH_ENGINE_ID: ${{ secrets.GOOGLE_SEARCH_ENGINE_ID }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
