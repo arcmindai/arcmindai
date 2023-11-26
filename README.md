@@ -48,6 +48,23 @@ ArcMind is composed of 2 canisters in a parent-child relationship:
 
 The `brain` canister could either connect to LLM remotely or locally hosted open-source LLM like [LLama2](https://github.com/facebookresearch/llama) in the future.
 
+## Setting up Github Action CI / CD
+
+Get the string using commands below then put it into Github Secrets.
+Note: Replace default by the identity name you need.
+
+### DFX_IDENTITY
+
+```
+awk 'NF {sub(/\r/, ""); printf "%s\\r\\n",$0;}' ~/.config/dfx/identity/default/identity.pem
+```
+
+### DFX_WALLETS
+
+```
+cat ~/.config/dfx/identity/default/wallets.json
+```
+
 # Author
 
 Henry Chan henry@controlaltdevelop.com
