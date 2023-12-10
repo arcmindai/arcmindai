@@ -533,24 +533,21 @@ async fn generate_embeddings(content: String) -> Result<Embeddings, String> {
 }
 
 // Retrieves goal from stable data
-// TODO - add owner check back when full ArcMind AI is ready
-#[query]
+#[query(guard = "assert_owner")]
 #[candid_method(query)]
 fn get_goal(key: u64) -> Option<Goal> {
     STATE.with(|s| s.borrow().stable_goal_data.get(key))
 }
 
 // Retrieves chathistory from stable data
-// TODO - add owner check back when full ArcMind AI is ready
-#[query]
+#[query(guard = "assert_owner")]
 #[candid_method(query)]
 fn get_chathistory() -> Vec<ChatHistory> {
     STATE.with(|s| s.borrow().stable_chathistory_data.iter().collect())
 }
 
 // Inserts a goal into the stable data Goal Vec and ChatHistory Vec
-// TODO - add owner check back when full ArcMind AI is ready
-#[update]
+#[update(guard = "assert_owner")]
 #[candid_method(update)]
 fn insert_goal(goal_string: String) {
     let now: Timestamp = time();
@@ -572,9 +569,8 @@ fn insert_goal(goal_string: String) {
     insert_chat(ChatRole::User, goal_string.clone());
 }
 
-// Inserts a goal into the stable data Goal Vec and ChatHistory Vec
-// TODO - add owner check back when full ArcMind AI is ready
-#[update]
+// Inserts a goal into the stable data Goal Vec and ChatHistory Vec, and clear existing goals
+#[update(guard = "assert_owner")]
 #[candid_method(update)]
 fn start_new_goal(goal_string: String) {
     let now: Timestamp = time();
@@ -667,8 +663,7 @@ async fn browse_website(url: String, _question: String) -> String {
     return result;
 }
 
-// TODO - add owner check back when full ArcMind AI is ready
-#[update]
+#[update(guard = "assert_owner")]
 #[candid_method(update)]
 fn clear_all_goals() {
     // clear and reinit stable_chathistory_data and stable_goal_data
@@ -741,8 +736,7 @@ pub fn update_owner(new_owner: Principal) {
     });
 }
 
-// TODO - add owner check when full ArcMind AI is ready
-#[update]
+#[update(guard = "assert_owner")]
 #[candid_method(update)]
 pub fn toggle_pause_cof() {
     let cur_pause = STATE

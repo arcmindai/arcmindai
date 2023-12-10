@@ -36,3 +36,10 @@ dfx canister --network $IC_NETWORK call arcmindai_brain update_owner "(principal
 
 echo Brain Owner:
 dfx canister --network $IC_NETWORK call arcmindai_brain get_owner
+
+# Update tools owner to controller
+echo Updating tools owner to controller $CONTROLLER_PRINCIPAL
+dfx canister --network $IC_NETWORK call arcmindai_tools update_owner "(principal \"$CONTROLLER_PRINCIPAL\")"
+
+echo Tools Owner:
+dfx canister --network $IC_NETWORK call arcmindai_tools get_owner
