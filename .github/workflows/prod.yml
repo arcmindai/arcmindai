@@ -21,7 +21,7 @@ jobs:
       - name: Install DFX
         run: echo y | sh -ci "$(curl -fsSL https://sdk.dfinity.org/install.sh)"
         env:
-          DFX_VERSION: 0.15.1
+          DFX_VERSION: 0.15.2
       - name: Add DFX identity and wallets
         run: ./scripts/add-ic-identity.sh
         env:
