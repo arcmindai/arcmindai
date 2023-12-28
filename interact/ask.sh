@@ -8,8 +8,9 @@ echo Asking on $IC_NETWORK
 
 # TODAY=$(date +"%Y-%m-%d")
 # QUESTION="Today is $TODAY. I was born in 1988-08-16. How old am I?"
+# QUESTION="What are the health benefits of NMN based on your memory?"
 
-QUESTION="I am Henry Chan. What is my first name?"
+QUESTION="What are the health benefits of NMN?"
 echo Questions: $QUESTION
 
 dfx canister --network $IC_NETWORK call arcmindai_controller ask "(\"$QUESTION\")"
