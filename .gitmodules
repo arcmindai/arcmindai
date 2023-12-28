@@ -1,0 +1,3 @@
+[submodule "arcmindvector"]
+	path = arcmindvector
+	url = https://github.com/arcmindai/arcmindvector
