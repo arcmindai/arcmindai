@@ -1,6 +1,29 @@
+# Validate required env vars
+if [[ -z "${OPENAI_API_KEY}" ]]; then
+  echo "OPENAI_API_KEY is unset."
+  exit 1
+fi
+
+if [[ -z "${VECTOR_PRINCIPAL}" ]]; then
+  echo "VECTOR_PRINCIPAL is unset."
+  exit 1
+fi
+
+if [[ -z "${GOOGLE_API_KEY}" ]]; then
+  echo "GOOGLE_API_KEY is unset."
+  exit 1
+fi
+
+if [[ -z "${GOOGLE_SEARCH_ENGINE_ID}" ]]; then
+  echo "GOOGLE_SEARCH_ENGINE_ID is unset."
+  exit 1
+fi
+
+
 # To deplopy locally, update IC_NETWORK to local. To deploy to ic, update IC_NETWORK to ic.
 IC_NETWORK=${IC_NETWORK:-local}
 echo Provisioning on $IC_NETWORK
+
 
 GPT_MODEL=gpt-4
 BROWSE_WEBSITE_GPT_MODEL=gpt-3.5-turbo-1106
@@ -18,7 +41,7 @@ dfx deploy --network $IC_NETWORK arcmindai_brain --argument "(opt principal \"$O
 BRAIN_PRINCIPAL=$(dfx canister --network $IC_NETWORK id arcmindai_brain)
 
 # Deploy tools canister
-echo Deploying tools canister with owner $OWENR_PRINCIPAL on $IC_NETWORK
+echo Deploying tools canister with owner $OWENR_PRINCIPAL on $IC_NETWORK with GOOGLE_API_KEY=$GOOGLE_API_KEY, GOOGLE_SEARCH_ENGINE_ID=$GOOGLE_SEARCH_ENGINE_ID
 dfx deploy --network $IC_NETWORK arcmindai_tools --argument "(opt principal \"$OWENR_PRINCIPAL\", \"$GOOGLE_API_KEY\", \"$GOOGLE_SEARCH_ENGINE_ID\")"
 
 TOOLS_PRINCIPAL=$(dfx canister --network $IC_NETWORK id arcmindai_tools)

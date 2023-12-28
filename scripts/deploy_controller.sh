@@ -1,3 +1,9 @@
+# Validate required env vars
+if [[ -z "${VECTOR_PRINCIPAL}" ]]; then
+  echo "VECTOR_PRINCIPAL is unset."
+  exit 1
+fi
+
 # To deplopy locally, update IC_NETWORK to local. To deploy to ic, update IC_NETWORK to ic.
 IC_NETWORK=${IC_NETWORK:-local}
 
