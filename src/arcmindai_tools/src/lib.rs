@@ -237,10 +237,13 @@ pub fn get_owner() -> Option<Principal> {
 #[candid_method(update)]
 pub fn update_owner(new_owner: Principal) {
     STATE.with(|state| {
+        let google_api_key = state.borrow().google_api_key.clone();
+        let search_engine_id = state.borrow().search_engine_id.clone();
+
         *state.borrow_mut() = State {
             owner: Some(new_owner),
-            google_api_key: state.borrow().google_api_key.clone(),
-            search_engine_id: state.borrow().search_engine_id.clone(),
+            google_api_key: google_api_key,
+            search_engine_id: search_engine_id,
         };
     });
 }
