@@ -16,7 +16,7 @@ CONTROLLER_PRINCIPAL=$(dfx canister --network $IC_NETWORK id arcmindai_controlle
 
 # Deploy tools canister
 echo Deploying tools canister with owner=$CONTROLLER_PRINCIPAL on $IC_NETWORK, GOOGLE_API_KEY=$GOOGLE_API_KEY, GOOGLE_SEARCH_ENGINE_ID=$GOOGLE_SEARCH_ENGINE_ID
-dfx deploy --network $IC_NETWORK arcmindai_tools --mode reinstall --argument "(opt principal \"$CONTROLLER_PRINCIPAL\", \"$GOOGLE_API_KEY\", \"$GOOGLE_SEARCH_ENGINE_ID\")"
+dfx deploy --network $IC_NETWORK arcmindai_tools --argument "(opt principal \"$CONTROLLER_PRINCIPAL\", \"$GOOGLE_API_KEY\", \"$GOOGLE_SEARCH_ENGINE_ID\")"
 
 echo Tools Owner:
 dfx canister --network $IC_NETWORK call arcmindai_tools get_owner
