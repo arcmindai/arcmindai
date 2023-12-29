@@ -1,0 +1,41 @@
+name: Assign Owner
+
+on:
+  repository_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Rust toolchain
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          rustup target add wasm32-unknown-unknown
+      - name: Install DFX
+        run: echo y | sh -ci "$(curl -fsSL https://sdk.dfinity.org/install.sh)"
+        env:
+          DFX_VERSION: 0.15.2
+      - name: Add DFX identity and wallets
+        run: ./scripts/add-ic-identity.sh
+        env:
+          DFX_IDENTITY: ${{ secrets.DFX_IDENTITY_PROD }}
+          DFX_WALLETS: ${{ secrets.DFX_WALLETS_PROD }}
+      - name: Update controller canister owner to new owner
+        id: provision
+        run: scripts/update_controller_owner.sh
+        env:
+          IC_NETWORK: ic
+          CONTROLLER_OWNER: ${{ github.event.client_payload.controller_owner }}
+          CONTROLLER_CANISTER_ID: ${{ github.event.client_payload.controller_canister_id }}
+      - name: Debug URL
+        run: echo https://allocatecanistertoowner-4gbndkvjta-uc.a.run.app?apiKey=${{ secrets.FB_API_KEY }}&owner=${{ github.event.client_payload.controller_owner }}&canisterId=${{ github.event.client_payload.controller_canister_id }}
+      - name: Call Firebase Function /complete_deploy and assert HTTP status 200
+        uses: fjogeleit/http-request-action@v1
+        with:
+          url: https://allocatecanistertoowner-4gbndkvjta-uc.a.run.app?apiKey=${{ secrets.FB_API_KEY }}&owner=${{ github.event.client_payload.controller_owner }}&canisterId=${{ github.event.client_payload.controller_canister_id }}
+          method: 'GET'

@@ -1,17 +1,13 @@
-name: Dev
+name: Production
 
 on:
   workflow_dispatch:
-  push:
-    branches: ['dev']
-  pull_request:
-    branches: ['dev']
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -24,12 +20,18 @@ jobs:
         run: echo y | sh -ci "$(curl -fsSL https://sdk.dfinity.org/install.sh)"
         env:
           DFX_VERSION: 0.15.2
-      - run: dfx start --clean --background
-      - name: Build and Deploy locally
-        run: scripts/provision.sh
+      - name: Add DFX identity and wallets
+        run: ./scripts/add-ic-identity.sh
         env:
-          IC_NETWORK: local
-          VECTOR_PRINCIPAL: ${{ secrets.VECTOR_PRINCIPAL }}
+          DFX_IDENTITY: ${{ secrets.DFX_IDENTITY_PROD }}
+          DFX_WALLETS: ${{ secrets.DFX_WALLETS_PROD }}
+      - name: Deploy to production
+        run: |
+          scripts/deploy_brain.sh
+          scripts/deploy_tools.sh
+          scripts/deploy_controller.sh
+        env:
+          IC_NETWORK: ic
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GOOGLE_SEARCH_ENGINE_ID: ${{ secrets.GOOGLE_SEARCH_ENGINE_ID }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
