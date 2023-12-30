@@ -1,8 +1,16 @@
 name: Assign Owner
 
 on:
-  repository_dispatch:
   workflow_dispatch:
+    inputs:
+      controller_owner:
+        description: 'Controller Canister Owner'
+        required: true
+        type: string
+      controller_canister_id:
+        description: 'Controller Canister Id'
+        required: true
+        type: string
 
 env:
   CARGO_TERM_COLOR: always
