@@ -69,4 +69,4 @@ echo Controller Owner:
 dfx canister --network $IC_NETWORK call arcmindai_controller get_owner
 
 CONTROLL_PRINCIPAL=$(dfx canister --network $IC_NETWORK id arcmindai_controller)
-echo $CONTROLL_PRINCIPAL >> $GITHUB_OUTPUT
+echo "controller_principal=$CONTROLL_PRINCIPAL" >> $GITHUB_OUTPUT

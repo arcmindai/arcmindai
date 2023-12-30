@@ -37,6 +37,7 @@ jobs:
       - name: run DFX local replica
         run: dfx start --clean --background
       - name: Build and Deploy locally
+        id: provision
         run: scripts/provision.sh
         env:
           IC_NETWORK: local
@@ -44,3 +45,5 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GOOGLE_SEARCH_ENGINE_ID: ${{ secrets.GOOGLE_SEARCH_ENGINE_ID }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      - name: Show Controller Principal
+        run: echo ${{ steps.provision.outputs.controller_principal }}
