@@ -16,6 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          token: ${{ secrets.ARCMIND_CI_TOKEN }}
           submodules: true
       - uses: Swatinem/rust-cache@v2
       - name: Install Rust toolchain
