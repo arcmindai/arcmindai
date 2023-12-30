@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Validate required env vars
 if [[ -z "${GOOGLE_API_KEY}" ]]; then
   echo "GOOGLE_API_KEY is unset."
