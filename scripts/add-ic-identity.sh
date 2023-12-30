@@ -1,4 +1,5 @@
-#!/bin/sh -l
+#!/bin/bash
+
 ## Require ENV VARS: DFX_IDENTITY and DFX_WALLETS
 # See https://github.com/FleekHQ/IC-Deploy-Action for original reference
 

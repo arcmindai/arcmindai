@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Validate required env vars
 if [[ -z "${CONTROLLER_OWNER}" ]]; then
   echo "CONTROLLER_OWNER is unset."

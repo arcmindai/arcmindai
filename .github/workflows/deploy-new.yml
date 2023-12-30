@@ -20,6 +20,8 @@ jobs:
         run: echo y | sh -ci "$(curl -fsSL https://sdk.dfinity.org/install.sh)"
         env:
           DFX_VERSION: 0.15.2
+      - name: Fetch git submodule arcmindvector
+        run: git submodule update --init --recursive
       - name: Add DFX identity and wallets
         run: ./scripts/add-ic-identity.sh
         env:
