@@ -29,6 +29,8 @@ jobs:
         env:
           DFX_IDENTITY: ${{ secrets.DFX_IDENTITY_PROD }}
           DFX_WALLETS: ${{ secrets.DFX_WALLETS_PROD }}
+      - name: Fetch git submodule arcmindvector
+        run: git submodule update --init --recursive
       - name: run DFX local replica
         run: dfx start --clean --background
       - name: Build and Deploy locally
