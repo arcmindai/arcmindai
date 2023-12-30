@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Validate required env vars
 if [[ -z "${OPENAI_API_KEY}" ]]; then
   echo "OPENAI_API_KEY is unset."

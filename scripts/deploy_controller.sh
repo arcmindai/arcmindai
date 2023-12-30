@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Validate required env vars
 if [[ -z "${VECTOR_PRINCIPAL}" ]]; then
   echo "VECTOR_PRINCIPAL is unset."
