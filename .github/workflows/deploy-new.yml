@@ -1,15 +1,13 @@
-name: Production
+name: Deploy New Instance
 
 on:
   workflow_dispatch:
-  push:
-    branches: ['main']
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -21,20 +19,25 @@ jobs:
       - name: Install DFX
         run: echo y | sh -ci "$(curl -fsSL https://sdk.dfinity.org/install.sh)"
         env:
-          DFX_VERSION: 0.15.1
+          DFX_VERSION: 0.15.2
       - name: Add DFX identity and wallets
         run: ./scripts/add-ic-identity.sh
         env:
           DFX_IDENTITY: ${{ secrets.DFX_IDENTITY_PROD }}
           DFX_WALLETS: ${{ secrets.DFX_WALLETS_PROD }}
-      - name: Deploy to production
-        run: |
-          scripts/deploy_brain.sh
-          scripts/deploy_tools.sh
-          scripts/deploy_controller.sh
+      - name: Provision a new suite of ArcMind Canisters to IC mainnet
+        id: provision
+        run: scripts/provision.sh
         env:
           IC_NETWORK: ic
-          VECTOR_PRINCIPAL: ${{ secrets.VECTOR_PRINCIPAL }}
+          OWNER_PRINCIPAL: ${{ secrets.OWNER_PRINCIPAL }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GOOGLE_SEARCH_ENGINE_ID: ${{ secrets.GOOGLE_SEARCH_ENGINE_ID }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      - name: Debug URL
+        run: echo https://completedeploy-4gbndkvjta-uc.a.run.app?apiKey=${{ secrets.FB_API_KEY }}&canisterId=${{ steps.provision.outputs }}
+      - name: Call Firebase Function /complete_deploy and assert HTTP status 200
+        uses: fjogeleit/http-request-action@v1
+        with:
+          url: https://completedeploy-4gbndkvjta-uc.a.run.app?apiKey=${{ secrets.FB_API_KEY }}&canisterId=${{ steps.provision.outputs }}
+          method: 'GET'

@@ -1,11 +1,21 @@
+# Validate required env vars
+if [[ -z "${VECTOR_PRINCIPAL}" ]]; then
+  echo "VECTOR_PRINCIPAL is unset."
+  exit 1
+fi
+
+if [[ -z "${OWENR_PRINCIPAL}" ]]; then
+  echo "OWENR_PRINCIPAL is unset."
+  exit 1
+fi
+
 # To deplopy locally, update IC_NETWORK to local. To deploy to ic, update IC_NETWORK to ic.
 IC_NETWORK=${IC_NETWORK:-local}
 
-OwnerPrincipal=$(dfx identity --network $IC_NETWORK get-principal)
-BrainPrincipal=$(dfx canister --network $IC_NETWORK id arcmindai_brain)
-ToolsPrincipal=$(dfx canister --network $IC_NETWORK id arcmindai_tools)
+BRAIN_PRINCIPAL=$(dfx canister --network $IC_NETWORK id arcmindai_brain)
+TOOLS_PRINCIPAL=$(dfx canister --network $IC_NETWORK id arcmindai_tools)
 BROWSE_WEBSITE_GPT_MODEL=gpt-3.5-turbo-1106
 
 # Deploy controller canister
-echo Deploying controller canister with owner=$OwnerPrincipal, brain=$BrainPrincipal, browse_website_gpt_model=$BROWSE_WEBSITE_GPT_MODEL, tools=$ToolsPrincipal, VECTOR_PRINCIPAL=$VECTOR_PRINCIPAL on $IC_NETWORK
-dfx deploy --network $IC_NETWORK arcmindai_controller --argument "(opt principal \"$OwnerPrincipal\", opt principal \"$BrainPrincipal\", opt principal \"$ToolsPrincipal\", opt principal \"$VECTOR_PRINCIPAL\", opt \"$BROWSE_WEBSITE_GPT_MODEL\")"
+echo Deploying controller canister with owner=$OWENR_PRINCIPAL, brain=$BRAIN_PRINCIPAL, browse_website_gpt_model=$BROWSE_WEBSITE_GPT_MODEL, tools=$TOOLS_PRINCIPAL, VECTOR_PRINCIPAL=$VECTOR_PRINCIPAL on $IC_NETWORK
+dfx deploy --network $IC_NETWORK arcmindai_controller --argument "(opt principal \"$OWENR_PRINCIPAL\", opt principal \"$BRAIN_PRINCIPAL\", opt principal \"$TOOLS_PRINCIPAL\", opt principal \"$VECTOR_PRINCIPAL\", opt \"$BROWSE_WEBSITE_GPT_MODEL\")"
