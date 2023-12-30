@@ -2,6 +2,7 @@ name: Assign Owner
 
 on:
   repository_dispatch:
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
