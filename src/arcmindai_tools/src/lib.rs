@@ -54,8 +54,7 @@ thread_local! {
 }
 
 // entry function for user to web scrap a website
-// TODO - add owner check back when full ArcMind AI is ready
-#[update]
+#[update(guard = "assert_owner")]
 #[candid_method(update)]
 async fn browse_website(url: String) -> String {
     let request_headers = vec![HttpHeader {
@@ -102,8 +101,7 @@ async fn browse_website(url: String) -> String {
 }
 
 // entry function for user to perform google search on a query
-// TODO - add owner check back when full ArcMind AI is ready
-#[update]
+#[update(guard = "assert_owner")]
 #[candid_method(update)]
 async fn google(query: String) -> String {
     let request_headers = vec![HttpHeader {
@@ -216,8 +214,6 @@ fn transform(args: TransformArgs) -> HttpResponse {
 }
 
 // ---------------------- Supporting Functions ----------------------
-
-// Controller canister must be created with principal
 #[init]
 #[candid_method(init)]
 fn init(owner: Option<Principal>, google_api_key: String, search_engine_id: String) {
@@ -241,10 +237,13 @@ pub fn get_owner() -> Option<Principal> {
 #[candid_method(update)]
 pub fn update_owner(new_owner: Principal) {
     STATE.with(|state| {
+        let google_api_key = state.borrow().google_api_key.clone();
+        let search_engine_id = state.borrow().search_engine_id.clone();
+
         *state.borrow_mut() = State {
             owner: Some(new_owner),
-            google_api_key: state.borrow().google_api_key.clone(),
-            search_engine_id: state.borrow().search_engine_id.clone(),
+            google_api_key: google_api_key,
+            search_engine_id: search_engine_id,
         };
     });
 }
