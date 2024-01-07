@@ -17,9 +17,11 @@ service : (
   opt principal,
   opt principal,
   opt principal,
+  opt principal,
   opt text,
 ) -> {
   clear_all_goals : () -> ();
+  get_beamfi_canister : () -> (opt principal) query;
   get_brain_canister : () -> (opt principal) query;
   get_chathistory : () -> (vec ChatHistory) query;
   get_goal : (nat64) -> (opt Goal) query;
