@@ -1,0 +1,1 @@
+dfx canister call beamescrow createBeamEscrow "(100000000, variant { icp }, 14, 1_705_215_204_127_011_000, principal \"aovwi-4maaa-aaaaa-qaagq-cai\", principal \"hpikg-6exdt-jn33w-ndty3-fc7jc-tl2lr-buih3-cs3y7-tftkp-sfp62-gqe\")"
