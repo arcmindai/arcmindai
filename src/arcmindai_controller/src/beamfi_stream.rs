@@ -56,8 +56,9 @@ impl BeamFiPlugin {
         beamfi_canister: Principal,
         args: Vec<String>,
     ) -> String {
-        let amount: u64 = args[0].parse().unwrap();
-        let amount_e8s: u64 = amount * 100_000_000;
+        let amount: f64 = args[0].parse().unwrap();
+        let amount_e8s_f: f64 = amount * 100_000_000.0;
+        let amount_e8s: u64 = amount_e8s_f as u64;
 
         let token_type: String = args[1].parse().unwrap();
         let token_type_enum: TokenType = match token_type.as_str() {
@@ -69,7 +70,7 @@ impl BeamFiPlugin {
         let recipient_principal = Principal::from_text(recipient_principal_id.clone()).unwrap();
 
         // transfer ICP from controller to BeamEscrow canister, assuming controller has enough ICP
-        let block_index: u64 = self.transfer_icp(amount, beamfi_canister).await;
+        let block_index: u64 = self.transfer_icp(amount_e8s, beamfi_canister).await;
 
         //  due_date in UTC epoch nanoseconds from now + 24 hrs
         let due_date: Timestamp = time() + DUE_DATE_DURATION;
@@ -102,9 +103,7 @@ impl BeamFiPlugin {
         return escrow_id.to_string();
     }
 
-    async fn transfer_icp(&self, amount: u64, recipient_principal: Principal) -> BlockIndex {
-        // convert amount to E8S format with a base of 8 zeros
-        let amount_in_e8s = amount * 100_000_000;
+    async fn transfer_icp(&self, amount_e8s: u64, recipient_principal: Principal) -> BlockIndex {
         let to_principal: ICPrincipal =
             ICPrincipal::from_text(recipient_principal.to_text()).unwrap();
 
@@ -112,7 +111,7 @@ impl BeamFiPlugin {
             MAINNET_LEDGER_CANISTER_ID,
             TransferArgs {
                 memo: Memo(0),
-                amount: Tokens::from_e8s(amount_in_e8s),
+                amount: Tokens::from_e8s(amount_e8s),
                 fee: DEFAULT_FEE,
                 from_subaccount: None,
                 to: AccountIdentifier::new(&to_principal, &DEFAULT_SUBACCOUNT),

@@ -5,3 +5,12 @@ dfx canister call nns-ledger icrc1_decimals '()'
 dfx canister call nns-ledger icrc1_balance_of "(record {owner = principal \"aovwi-4maaa-aaaaa-qaagq-cai\"; })"
 
 dfx canister call nns-ledger icrc1_balance_of "(record {owner = principal \"hpikg-6exdt-jn33w-ndty3-fc7jc-tl2lr-buih3-cs3y7-tftkp-sfp62-gqe\"; })"
+
+Account ID of principal o5uxz-byaaa-aaaah-adnyq-cai:
+8419667c1541bcfb82c4ee1421a7f3cae62790f879d71c71e5546e867a339d2e
+
+
+Please stream 0.01 ICP tokens to principal ID evdxs-el2wl-mrpaf-ehe75-uwoax-mqoc6-e55si-ls4va-gyecy-ywbio-bae
+
+
+Please stream 0.01 ICP tokens to principal ID hpikg-6exdt-jn33w-ndty3-fc7jc-tl2lr-buih3-cs3y7-tftkp-sfp62-gqe
