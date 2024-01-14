@@ -1,7 +1,9 @@
 use async_trait::async_trait;
-use candid::Principal;
+use candid::{Int, Principal};
 use ic_cdk::api::time;
 use ic_principal::Principal as ICPrincipal;
+
+use candid::{CandidType, Deserialize};
 
 use ic_ledger_types::{
     transfer, AccountIdentifier, BlockIndex, Memo, Tokens, TransferArgs, DEFAULT_FEE,
@@ -19,6 +21,34 @@ pub struct BeamFiPlugin {
     pub args: Vec<&'static str>,
 }
 
+#[derive(CandidType, Deserialize)]
+enum TokenType {
+    #[serde(rename = "icp")]
+    ICP,
+}
+
+#[derive(CandidType, Deserialize, PartialEq, PartialOrd, Eq, Ord, Debug, Hash)]
+enum CandidResult<T, E> {
+    #[serde(rename = "ok")]
+    Ok(T),
+    #[serde(rename = "err")]
+    Err(E),
+}
+
+#[derive(CandidType, Deserialize, Debug)]
+enum CreateBeamEscrowResponseErrorCode {
+    #[serde(rename = "escrow_payment_not_found")]
+    EscrowPaymentNotFound(String),
+    #[serde(rename = "escrow_contract_verification_failed")]
+    EscrowContractVerificationFailed(String),
+    #[serde(rename = "escrow_token_owned_not_matched")]
+    EscrowTokenOwnedNotMatched(String),
+    #[serde(rename = "escrow_contract_not_found")]
+    EscrowContractNotFound(String),
+    #[serde(rename = "escrow_beam_failed")]
+    EscrowBeamFailed(String),
+}
+
 impl BeamFiPlugin {
     async fn stream_payment(
         &self,
@@ -27,29 +57,49 @@ impl BeamFiPlugin {
         args: Vec<String>,
     ) -> String {
         let amount: u64 = args[0].parse().unwrap();
+        let amount_e8s: u64 = amount * 100_000_000;
+
         let token_type: String = args[1].parse().unwrap();
+        let token_type_enum: TokenType = match token_type.as_str() {
+            "ICP" => TokenType::ICP,
+            _ => TokenType::ICP,
+        };
+
         let recipient_principal_id: String = args[2].parse().unwrap();
+        let recipient_principal = Principal::from_text(recipient_principal_id.clone()).unwrap();
 
         // transfer ICP from controller to BeamEscrow canister, assuming controller has enough ICP
-        let block_index = self.transfer_icp(amount, beamfi_canister).await;
+        let block_index: u64 = self.transfer_icp(amount, beamfi_canister).await;
 
         //  due_date in UTC epoch nanoseconds from now + 24 hrs
         let due_date: Timestamp = time() + DUE_DATE_DURATION;
+        let due_date_int: Int = due_date.into();
 
-        let args = (
-            amount,
-            token_type,
-            block_index,
-            due_date,
-            controller_canister,
-            recipient_principal_id,
-        );
-        let (result,): (String,) =
-            ic_cdk::api::call::call(beamfi_canister, "createBeamEscrow", (args,))
-                .await
-                .expect("call to createBeamEscrow failed");
+        let (result,): (CandidResult<u32, CreateBeamEscrowResponseErrorCode>,) =
+            ic_cdk::api::call::call(
+                beamfi_canister,
+                "createBeamEscrow",
+                (
+                    amount_e8s,
+                    token_type_enum,
+                    block_index,
+                    due_date_int,
+                    controller_canister,
+                    recipient_principal,
+                ),
+            )
+            .await
+            .expect("call to createBeamEscrow failed");
 
-        return result;
+        // if result is error, panic, else return the escrow_id
+        let escrow_id: u32 = match result {
+            CandidResult::Ok(escrow_id) => escrow_id,
+            CandidResult::Err(error_code) => {
+                panic!("createBeamEscrow failed with error code: {:?}", error_code)
+            }
+        };
+
+        return escrow_id.to_string();
     }
 
     async fn transfer_icp(&self, amount: u64, recipient_principal: Principal) -> BlockIndex {
@@ -84,7 +134,7 @@ impl AMPluginAction for BeamFiPlugin {
         BeamFiPlugin {
             name: "BeamFi stream payment",
             command: "beamfi_stream_payment",
-            args: ["amount", "tokenType", "recipientPrincipalId"].to_vec(),
+            args: ["amount", "token_type", "recipient_principal_id"].to_vec(),
         }
     }
 
