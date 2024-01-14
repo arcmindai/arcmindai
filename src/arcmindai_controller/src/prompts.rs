@@ -17,6 +17,7 @@ Commands:
 3. Browse Website: "browse_website", args: "url": "<url>", "question": "<what_you_want_to_find_on_website>"
 4. Write to file and shutdown: "write_file_and_shutdown", args: "key": "<key>", "text": "<text>"
 5. Task Complete (Shutdown): "shutdown", args: "reason": "<reason>"
+6. Stream Payment to recipient with BeamFi: "beamfi_stream_payment", args: "amount": "<amount>", "token_type": "<token_type>", "recipient_principal_id": "<recipient_principal_id>"
 
 Resources:
 1. Internet access for searches and information gathering.
