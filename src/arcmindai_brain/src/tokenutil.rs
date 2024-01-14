@@ -7,7 +7,7 @@ pub fn truncate_question(question: String, max_token_limit: usize) -> String {
     let bpe = cl100k_base().unwrap();
     let tokens = bpe.encode_with_special_tokens(question.as_str());
     let tokens_len = tokens.len();
-    ic_cdk::println!("Token count: : {}", tokens_len);
+    ic_cdk::println!("Token count: {}", tokens_len);
 
     if tokens_len > max_token_limit {
         let safe_question = question

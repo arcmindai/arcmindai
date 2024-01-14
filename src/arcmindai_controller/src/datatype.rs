@@ -15,6 +15,7 @@ pub const PROMPT_CMD_START_AGENT: &str = "start_agent";
 pub const PROMPT_CMD_WRITE_FILE_AND_SHUTDOWN: &str = "write_file_and_shutdown";
 pub const PROMPT_CMD_DO_NOTHING: &str = "do_nothing";
 pub const PROMPT_CMD_SHUTDOWN: &str = "shutdown";
+pub const PROMPT_CMD_BEAMFI_STREAM_PAYMENT: &str = "beamfi_stream_payment";
 
 pub const TOP_CMD_AGENT_NAME: &str = "ArcMind";
 pub const TOP_CMD_AGENT_TASK: &str = "knowing the greatest knowledge of the world";

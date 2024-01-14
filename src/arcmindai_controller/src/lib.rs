@@ -1,4 +1,5 @@
 use candid::Deserialize;
+use plugin_types::AMPluginAction;
 use serde_json::json;
 use std::{
     cell::RefCell,
@@ -9,17 +10,16 @@ use std::{
 use time::format_description;
 use time::OffsetDateTime;
 
-// Stable Structures
 use ic_cdk::api::time;
-
 use ic_cdk_timers::TimerId;
 use ic_stable_structures::{writer::Writer, Memory as _, StableVec};
 
 mod datatype;
 use datatype::{
     ChatDisplayHistory, ChatHistory, ChatRole, Embeddings, Goal, GoalStatus, PlainDoc,
-    PromptContext, Timestamp, VecDoc, VecQuery, WebQueryPromptContext, PROMPT_CMD_BROWSE_WEBSITE,
-    PROMPT_CMD_DO_NOTHING, PROMPT_CMD_GOOGLE, PROMPT_CMD_SHUTDOWN, PROMPT_CMD_START_AGENT,
+    PromptContext, Timestamp, VecDoc, VecQuery, WebQueryPromptContext,
+    PROMPT_CMD_BEAMFI_STREAM_PAYMENT, PROMPT_CMD_BROWSE_WEBSITE, PROMPT_CMD_DO_NOTHING,
+    PROMPT_CMD_GOOGLE, PROMPT_CMD_SHUTDOWN, PROMPT_CMD_START_AGENT,
     PROMPT_CMD_WRITE_FILE_AND_SHUTDOWN, TOP_CMD_AGENT_NAME, TOP_CMD_AGENT_TASK,
     VEC_SEARCH_TOP_K_NN,
 };
@@ -45,6 +45,11 @@ use guards::assert_owner;
 mod memory;
 use memory::Memory;
 
+mod beamfi_stream;
+use beamfi_stream::BeamFiPlugin;
+
+pub mod plugin_types;
+
 use async_recursion::async_recursion;
 
 const MIN_INTERVAL_SECS: u64 = 3;
@@ -55,9 +60,12 @@ const MAX_NUM_COF: u16 = 40;
 #[derive(Serialize, Deserialize)]
 pub struct State {
     pub owner: Option<Principal>,
+
     pub brain_canister: Option<Principal>,
     pub tools_canister: Option<Principal>,
     pub vector_canister: Option<Principal>,
+    pub beamfi_canister: Option<Principal>,
+
     pub is_pause_chain_of_thoughts: Option<bool>,
     pub browse_website_gpt_model: Option<String>,
 
@@ -75,6 +83,7 @@ impl Default for State {
             brain_canister: None,
             tools_canister: None,
             vector_canister: None,
+            beamfi_canister: None,
             is_pause_chain_of_thoughts: Some(false),
             browse_website_gpt_model: None,
             stable_goal_data: init_stable_goal_data(),
@@ -165,10 +174,6 @@ fn create_prompt(
 
     let format_desc = format_description::parse(DATE_TIME_FORMAT).unwrap();
 
-    let now_epoch: Timestamp = time();
-    let now = OffsetDateTime::from_unix_timestamp_nanos(now_epoch.try_into().unwrap()).unwrap();
-    let current_datetime_string = now.format(&format_desc).unwrap();
-
     // iterate through history, truncate content to 1000 chars
     let mut recent_display_history: Vec<ChatDisplayHistory> = Vec::new();
     let mut i = 0;
@@ -202,6 +207,10 @@ fn create_prompt(
     }
 
     let past_events = serde_json::to_string(&recent_display_history).unwrap();
+
+    let now_epoch: Timestamp = time();
+    let now = OffsetDateTime::from_unix_timestamp_nanos(now_epoch.try_into().unwrap()).unwrap();
+    let current_datetime_string = now.format(&format_desc).unwrap();
 
     let context = PromptContext {
         agent_name: agent_name,
@@ -281,6 +290,7 @@ async fn run_chain_of_thoughts(
             let name = cmd_args["name"].as_str();
             let task = cmd_args["task"].as_str();
             let prompt = cmd_args["prompt"].as_str();
+
             if name.is_none() || task.is_none() || prompt.is_none() {
                 let sys_result =
                     format!("ArcMind AI encountered an invalid command: {}", cof_input);
@@ -435,8 +445,6 @@ async fn run_chain_of_thoughts(
             return result;
         }
         Some(PROMPT_CMD_SHUTDOWN) => {
-            // insert result into chat history
-            insert_chat(ChatRole::System, cof_input.clone());
             // save result
             save_result(goal_key, cof_input.clone());
 
@@ -446,6 +454,51 @@ async fn run_chain_of_thoughts(
             insert_chat(ChatRole::System, shutdown_result.to_string());
 
             return cof_input;
+        }
+        Some(PROMPT_CMD_BEAMFI_STREAM_PAYMENT) => {
+            let cmd_args = cof_cmd["args"].clone();
+            let amount = cmd_args["amount"].as_str();
+            let token_type = cmd_args["token_type"].as_str();
+            let recipient_principa_id = cmd_args["recipient_principal_id"].as_str();
+
+            if amount.is_none() || token_type.is_none() || recipient_principa_id.is_none() {
+                return "Invalid beanfi stream command.".to_string();
+            }
+
+            let args = vec![
+                amount.unwrap().to_string(),
+                token_type.unwrap().to_string(),
+                recipient_principa_id.unwrap().to_string(),
+            ];
+            let beamfi_plugin: BeamFiPlugin = AMPluginAction::new();
+            let beamfi_canister: Principal =
+                STATE.with(|state| (*state.borrow()).beamfi_canister.unwrap());
+            let controller_canister: Principal = api::id();
+
+            let escrow_id = beamfi_plugin
+                .invoke(controller_canister, beamfi_canister, args)
+                .await;
+
+            ic_cdk::println!("BeamFi streaming escrow_id {}", escrow_id);
+
+            insert_chat(
+                ChatRole::System,
+                "Command beamfi_stream_payment has executed successfully.".to_string(),
+            );
+
+            insert_chat(
+                ChatRole::System,
+                "Please move on to the next command. If none is left, please shutdown.".to_string(),
+            );
+
+            let next_command = create_cof_command(main_goal.to_string());
+            return run_chain_of_thoughts(
+                num_thoughts + 1,
+                goal_key,
+                next_command,
+                main_goal.to_string(),
+            )
+            .await;
         }
         Some(n) => {
             insert_chat(
@@ -685,6 +738,7 @@ fn init(
     brain_canister: Option<Principal>,
     tools_canister: Option<Principal>,
     vector_canister: Option<Principal>,
+    beamfi_canister: Option<Principal>,
     browse_website_gpt_model: Option<String>,
 ) {
     let my_owner: Principal = owner.unwrap_or_else(|| api::caller());
@@ -694,6 +748,7 @@ fn init(
             brain_canister: brain_canister,
             tools_canister: tools_canister,
             vector_canister: vector_canister,
+            beamfi_canister: beamfi_canister,
             is_pause_chain_of_thoughts: Some(false),
             browse_website_gpt_model: browse_website_gpt_model,
             stable_goal_data: init_stable_goal_data(),
@@ -726,6 +781,12 @@ pub fn get_tools_canister() -> Option<Principal> {
 #[candid_method(query)]
 pub fn get_vector_canister() -> Option<Principal> {
     STATE.with(|state| (*state.borrow()).vector_canister)
+}
+
+#[query]
+#[candid_method(query)]
+pub fn get_beamfi_canister() -> Option<Principal> {
+    STATE.with(|state| (*state.borrow()).beamfi_canister)
 }
 
 #[update(guard = "assert_owner")]

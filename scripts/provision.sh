@@ -21,6 +21,11 @@ if [[ -z "${OWNER_PRINCIPAL}" ]]; then
   exit 1
 fi
 
+if [[ -z "${BEAMFI_PRINCIPAL}" ]]; then
+  echo "BEAMFI_PRINCIPAL is unset."
+  exit 1
+fi
+
 GPT_MODEL=gpt-4
 BROWSE_WEBSITE_GPT_MODEL=gpt-3.5-turbo-1106
 
@@ -62,8 +67,8 @@ dfx canister --network $IC_NETWORK call arcmindai_tools get_owner
 TOOLS_PRINCIPAL=$(dfx canister --network $IC_NETWORK id arcmindai_tools)
 
 # Deploy controller canister
-echo Deploying controller canister with owner $OWNER_PRINCIPAL, brain $BRAIN_PRINCIPAL, tools $TOOLS_PRINCIPAL, vector $VECTOR_PRINCIPAL and browse_website_gpt_model $BROWSE_WEBSITE_GPT_MODEL on $IC_NETWORK
-dfx deploy --network $IC_NETWORK arcmindai_controller --argument "(opt principal \"$OWNER_PRINCIPAL\", opt principal \"$BRAIN_PRINCIPAL\", opt principal \"$TOOLS_PRINCIPAL\", opt principal \"$VECTOR_PRINCIPAL\", opt \"$BROWSE_WEBSITE_GPT_MODEL\")"
+echo Deploying controller canister with owner $OWNER_PRINCIPAL, brain $BRAIN_PRINCIPAL, tools $TOOLS_PRINCIPAL, vector $VECTOR_PRINCIPAL, beamfi $BEAMFI_PRINCIPAL and browse_website_gpt_model $BROWSE_WEBSITE_GPT_MODEL on $IC_NETWORK
+dfx deploy --network $IC_NETWORK arcmindai_controller --argument "(opt principal \"$OWNER_PRINCIPAL\", opt principal \"$BRAIN_PRINCIPAL\", opt principal \"$TOOLS_PRINCIPAL\", opt principal \"$VECTOR_PRINCIPAL\", opt principal \"$BEAMFI_PRINCIPAL\", opt \"$BROWSE_WEBSITE_GPT_MODEL\")"
 
 echo Controller Owner:
 dfx canister --network $IC_NETWORK call arcmindai_controller get_owner
