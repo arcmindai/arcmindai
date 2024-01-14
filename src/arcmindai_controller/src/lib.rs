@@ -445,8 +445,6 @@ async fn run_chain_of_thoughts(
             return result;
         }
         Some(PROMPT_CMD_SHUTDOWN) => {
-            // insert result into chat history
-            insert_chat(ChatRole::System, cof_input.clone());
             // save result
             save_result(goal_key, cof_input.clone());
 
@@ -460,8 +458,8 @@ async fn run_chain_of_thoughts(
         Some(PROMPT_CMD_BEAMFI_STREAM_PAYMENT) => {
             let cmd_args = cof_cmd["args"].clone();
             let amount = cmd_args["amount"].as_str();
-            let token_type = cmd_args["tokenType"].as_str();
-            let recipient_principa_id = cmd_args["recipientPrincipalId"].as_str();
+            let token_type = cmd_args["token_type"].as_str();
+            let recipient_principa_id = cmd_args["recipient_principal_id"].as_str();
 
             if amount.is_none() || token_type.is_none() || recipient_principa_id.is_none() {
                 return "Invalid beanfi stream command.".to_string();
@@ -477,18 +475,20 @@ async fn run_chain_of_thoughts(
                 STATE.with(|state| (*state.borrow()).beamfi_canister.unwrap());
             let controller_canister: Principal = api::id();
 
-            let result = beamfi_plugin
+            let escrow_id = beamfi_plugin
                 .invoke(controller_canister, beamfi_canister, args)
                 .await;
 
-            // insert result into chat history
-            insert_chat(ChatRole::System, result.clone());
+            ic_cdk::println!("BeamFi streaming escrow_id {}", escrow_id);
 
-            let beamfi_stream_payment_cmd_history =
-                "Command beamfi_stream_payment returned: Result saved successfully.";
             insert_chat(
                 ChatRole::System,
-                beamfi_stream_payment_cmd_history.to_string(),
+                "Command beamfi_stream_payment has executed successfully.".to_string(),
+            );
+
+            insert_chat(
+                ChatRole::System,
+                "Please move on to the next command. If none is left, please shutdown.".to_string(),
             );
 
             let next_command = create_cof_command(main_goal.to_string());
