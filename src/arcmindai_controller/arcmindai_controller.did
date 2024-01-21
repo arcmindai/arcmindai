@@ -19,16 +19,21 @@ service : (
   opt principal,
   opt principal,
   opt text,
+  opt text,
 ) -> {
   clear_all_goals : () -> ();
   get_beamfi_canister : () -> (opt principal) query;
   get_brain_canister : () -> (opt principal) query;
   get_chathistory : () -> (vec ChatHistory) query;
   get_goal : (nat64) -> (opt Goal) query;
+  get_max_num_thoughts_allowed : () -> (nat64) query;
+  get_num_thoughts_processed : () -> (nat64) query;
   get_owner : () -> (opt principal) query;
   get_tools_canister : () -> (opt principal) query;
   get_vector_canister : () -> (opt principal) query;
+  inc_max_num_thoughts_limit : (text, text, nat32) -> ();
   insert_goal : (text) -> ();
+  is_exceed_max_num_thoughts_allowed : () -> (bool) query;
   start_new_goal : (text) -> ();
   toggle_pause_cof : () -> ();
   update_owner : (principal) -> ();

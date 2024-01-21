@@ -43,5 +43,6 @@ jobs:
           GOOGLE_SEARCH_ENGINE_ID: ${{ secrets.GOOGLE_SEARCH_ENGINE_ID }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           BEAMFI_PRINCIPAL: ${{ secrets.BEAMFI_PRINCIPAL }}
+          BILLING_KEY: ${{ secrets.BILLING_KEY }}
       - name: Show Controller Principal
         run: echo ${{ steps.provision.outputs.controller_principal }}
