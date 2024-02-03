@@ -9,6 +9,7 @@ const UPGRADES: MemoryId = MemoryId::new(0);
 // every additional stable structure.
 const STABLE_GOAL_VEC: MemoryId = MemoryId::new(1);
 const STABLE_CHATHISTORY_VEC: MemoryId = MemoryId::new(2);
+const STABLE_PAYMENTTRANSACTION_VEC: MemoryId = MemoryId::new(3);
 
 pub type Memory = VirtualMemory<DefaultMemoryImpl>;
 
@@ -29,4 +30,8 @@ pub fn get_stable_goal_vec_memory() -> Memory {
 
 pub fn get_stable_chathistory_vec_memory() -> Memory {
     MEMORY_MANAGER.with(|m| m.borrow().get(STABLE_CHATHISTORY_VEC))
+}
+
+pub fn get_stable_paymenttransaction_vec_memory() -> Memory {
+    MEMORY_MANAGER.with(|m| m.borrow().get(STABLE_PAYMENTTRANSACTION_VEC))
 }

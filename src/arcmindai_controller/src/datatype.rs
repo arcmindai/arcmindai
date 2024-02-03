@@ -99,6 +99,27 @@ impl BoundedStorable for ChatHistory {
     const IS_FIXED_SIZE: bool = false;
 }
 
+#[derive(CandidType, Deserialize, Serialize)]
+pub struct PaymentTransaction {
+    pub transaction_id: String,
+    pub created_at: Timestamp,
+}
+
+impl Storable for PaymentTransaction {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        Cow::Owned(Encode!(self).unwrap())
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        Decode!(bytes.as_ref(), Self).unwrap()
+    }
+}
+
+impl BoundedStorable for PaymentTransaction {
+    const MAX_SIZE: u32 = MAX_VALUE_SIZE;
+    const IS_FIXED_SIZE: bool = false;
+}
+
 // Goal Struct and Storable Trait
 #[derive(CandidType, Deserialize)]
 pub struct Goal {
@@ -122,4 +143,25 @@ impl Storable for Goal {
 impl BoundedStorable for Goal {
     const MAX_SIZE: u32 = MAX_VALUE_SIZE;
     const IS_FIXED_SIZE: bool = false;
+}
+
+// HTTP
+#[derive(CandidType, Deserialize, Clone)]
+pub struct HeaderField(pub String, pub String);
+
+#[derive(CandidType, Deserialize)]
+pub struct HttpRequest {
+    pub method: String,
+    pub url: String,
+    pub headers: Vec<HeaderField>,
+    #[serde(with = "serde_bytes")]
+    pub body: Vec<u8>,
+}
+
+#[derive(CandidType, Deserialize)]
+pub struct HttpResponse {
+    pub status_code: u16,
+    pub headers: Vec<HeaderField>,
+    #[serde(with = "serde_bytes")]
+    pub body: Vec<u8>,
 }

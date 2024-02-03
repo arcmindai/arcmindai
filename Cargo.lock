@@ -46,6 +46,7 @@ dependencies = [
  "ic-stable-structures",
  "ic_principal",
  "serde",
+ "serde_bytes",
  "serde_json",
  "time",
  "tinytemplate",

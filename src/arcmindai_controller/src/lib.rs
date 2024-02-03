@@ -16,10 +16,10 @@ use ic_stable_structures::{writer::Writer, Memory as _, StableVec};
 
 mod datatype;
 use datatype::{
-    ChatDisplayHistory, ChatHistory, ChatRole, Embeddings, Goal, GoalStatus, PlainDoc,
-    PromptContext, Timestamp, VecDoc, VecQuery, WebQueryPromptContext,
-    PROMPT_CMD_BEAMFI_STREAM_PAYMENT, PROMPT_CMD_BROWSE_WEBSITE, PROMPT_CMD_DO_NOTHING,
-    PROMPT_CMD_GOOGLE, PROMPT_CMD_SHUTDOWN, PROMPT_CMD_START_AGENT,
+    ChatDisplayHistory, ChatHistory, ChatRole, Embeddings, Goal, GoalStatus, HeaderField,
+    HttpRequest, HttpResponse, PaymentTransaction, PlainDoc, PromptContext, Timestamp, VecDoc,
+    VecQuery, WebQueryPromptContext, PROMPT_CMD_BEAMFI_STREAM_PAYMENT, PROMPT_CMD_BROWSE_WEBSITE,
+    PROMPT_CMD_DO_NOTHING, PROMPT_CMD_GOOGLE, PROMPT_CMD_SHUTDOWN, PROMPT_CMD_START_AGENT,
     PROMPT_CMD_WRITE_FILE_AND_SHUTDOWN, TOP_CMD_AGENT_NAME, TOP_CMD_AGENT_TASK,
     VEC_SEARCH_TOP_K_NN,
 };
@@ -55,7 +55,8 @@ use async_recursion::async_recursion;
 const MIN_INTERVAL_SECS: u64 = 3;
 const RECENT_CHAT_HISTORY: usize = 40;
 const DATE_TIME_FORMAT: &str = "[year]-[month]-[day] [hour]:[minute]:[second]";
-const MAX_NUM_COF: u16 = 40;
+const MAX_NUM_COF_PER_GOAL: u16 = 60;
+const DEFAULT_MAX_NUM_THOUGHTS_ALLOWED: u16 = 500;
 
 #[derive(Serialize, Deserialize)]
 pub struct State {
@@ -69,11 +70,18 @@ pub struct State {
     pub is_pause_chain_of_thoughts: Option<bool>,
     pub browse_website_gpt_model: Option<String>,
 
+    pub max_num_thoughts_allowed: u64,
+    pub num_thoughts_processed: u64,
+    pub billing_key: Option<String>,
+
     #[serde(skip, default = "init_stable_goal_data")]
     stable_goal_data: StableVec<Goal, Memory>,
 
     #[serde(skip, default = "init_stable_chathistory_data")]
     stable_chathistory_data: StableVec<ChatHistory, Memory>,
+
+    #[serde(skip, default = "init_stable_paymenttransaction_data")]
+    stable_paymenttransaction_data: StableVec<PaymentTransaction, Memory>,
 }
 
 impl Default for State {
@@ -86,8 +94,12 @@ impl Default for State {
             beamfi_canister: None,
             is_pause_chain_of_thoughts: Some(false),
             browse_website_gpt_model: None,
+            max_num_thoughts_allowed: DEFAULT_MAX_NUM_THOUGHTS_ALLOWED as u64,
+            num_thoughts_processed: 0,
+            billing_key: None,
             stable_goal_data: init_stable_goal_data(),
             stable_chathistory_data: init_stable_chathistory_data(),
+            stable_paymenttransaction_data: init_stable_paymenttransaction_data(),
         }
     }
 }
@@ -108,6 +120,11 @@ fn init_stable_goal_data() -> StableVec<Goal, Memory> {
 fn init_stable_chathistory_data() -> StableVec<ChatHistory, Memory> {
     StableVec::init(memory::get_stable_chathistory_vec_memory())
         .expect("call to init_stable_chathistory_data fails")
+}
+
+fn init_stable_paymenttransaction_data() -> StableVec<PaymentTransaction, Memory> {
+    StableVec::init(memory::get_stable_paymenttransaction_vec_memory())
+        .expect("call to init_stable_paymenttransaction_data fails")
 }
 
 /// Initial canister balance to track the cycles usage.
@@ -263,8 +280,16 @@ async fn run_chain_of_thoughts(
         return message.clone();
     }
 
-    if num_thoughts >= MAX_NUM_COF {
-        let message = "Chain of Thoughts has reached max number of thoughts.".to_string();
+    if num_thoughts >= MAX_NUM_COF_PER_GOAL {
+        let message = "Chain of Thoughts has reached max number of thoughts per goal.".to_string();
+        insert_chat(ChatRole::System, message.clone());
+        return message.clone();
+    }
+
+    if is_exceed_max_num_thoughts_allowed() {
+        let message: String =
+            "Chain of Thoughts has reached max number of thoughts allowed for the plan."
+                .to_string();
         insert_chat(ChatRole::System, message.clone());
         return message.clone();
     }
@@ -282,6 +307,8 @@ async fn run_chain_of_thoughts(
     let cof_json = cof_json.unwrap();
     let cof_cmd = cof_json["command"].clone();
     let cmd_name = cof_cmd["name"].as_str();
+
+    inc_num_thoughts_processed();
 
     // match and run command
     match cmd_name {
@@ -519,6 +546,13 @@ async fn run_chain_of_thoughts(
     // ------ End of Chain of Thoughts ------
 }
 
+fn inc_num_thoughts_processed() {
+    STATE.with(|state| {
+        let cur_state = state.borrow().num_thoughts_processed;
+        state.borrow_mut().num_thoughts_processed = cur_state + 1;
+    });
+}
+
 async fn run_recovery_cmd(num_thoughts: u16, goal_key: u64, main_goal: String) -> String {
     let user_result = "The command you provided is invalid. Use a valid command and try again.";
     insert_chat(ChatRole::User, user_result.to_string());
@@ -583,6 +617,10 @@ async fn generate_embeddings(content: String) -> Result<Embeddings, String> {
     .expect("call to generate_embeddings failed");
 
     return result;
+}
+
+fn get_paymenttransction() -> Vec<PaymentTransaction> {
+    STATE.with(|s| s.borrow().stable_paymenttransaction_data.iter().collect())
 }
 
 // Retrieves goal from stable data
@@ -740,6 +778,7 @@ fn init(
     vector_canister: Option<Principal>,
     beamfi_canister: Option<Principal>,
     browse_website_gpt_model: Option<String>,
+    billing_key: Option<String>,
 ) {
     let my_owner: Principal = owner.unwrap_or_else(|| api::caller());
     STATE.with(|state| {
@@ -751,8 +790,12 @@ fn init(
             beamfi_canister: beamfi_canister,
             is_pause_chain_of_thoughts: Some(false),
             browse_website_gpt_model: browse_website_gpt_model,
+            max_num_thoughts_allowed: DEFAULT_MAX_NUM_THOUGHTS_ALLOWED as u64,
+            num_thoughts_processed: 0,
+            billing_key: billing_key,
             stable_goal_data: init_stable_goal_data(),
             stable_chathistory_data: init_stable_chathistory_data(),
+            stable_paymenttransaction_data: init_stable_paymenttransaction_data(),
         };
     });
 
@@ -789,6 +832,27 @@ pub fn get_beamfi_canister() -> Option<Principal> {
     STATE.with(|state| (*state.borrow()).beamfi_canister)
 }
 
+#[query]
+#[candid_method(query)]
+pub fn get_num_thoughts_processed() -> u64 {
+    STATE.with(|state| (*state.borrow()).num_thoughts_processed)
+}
+
+#[query]
+#[candid_method(query)]
+pub fn get_max_num_thoughts_allowed() -> u64 {
+    STATE.with(|state| (*state.borrow()).max_num_thoughts_allowed)
+}
+
+#[query]
+#[candid_method(query)]
+pub fn is_exceed_max_num_thoughts_allowed() -> bool {
+    let num_thoughts_processed = get_num_thoughts_processed();
+    let max_num_thoughts_allowed = get_max_num_thoughts_allowed();
+
+    return num_thoughts_processed > max_num_thoughts_allowed;
+}
+
 #[update(guard = "assert_owner")]
 #[candid_method(update)]
 pub fn update_owner(new_owner: Principal) {
@@ -806,6 +870,106 @@ pub fn toggle_pause_cof() {
     STATE.with(|state| {
         state.borrow_mut().is_pause_chain_of_thoughts = Some(!cur_pause);
     });
+}
+
+#[candid_method(update)]
+// Idempotent function to increment max_num_thoughts_allowed for the payment_transaction_id, only apply one
+pub fn inc_max_num_thoughts_limit(
+    billing_key: String,
+    payment_transcation_id: String,
+    add_limit: u32,
+) {
+    // get current billing_key
+    let cur_billing_key = STATE
+        .with(|state| (*state.borrow()).billing_key.clone())
+        .unwrap();
+
+    STATE.with(|state| {
+        let cur_state = state.borrow().num_thoughts_processed;
+        state.borrow_mut().num_thoughts_processed = cur_state + add_limit as u64;
+    });
+
+    // verify billing_key == cur_billing_key
+    if billing_key != cur_billing_key {
+        ic_cdk::trap("Invalid billing key.");
+    }
+
+    // get payment transaction
+    let payment_transaction_vec: Vec<PaymentTransaction> = get_paymenttransction();
+    let payment_transaction: Option<&PaymentTransaction> = payment_transaction_vec
+        .iter()
+        .find(|&x| x.transaction_id == payment_transcation_id);
+
+    // Increment max_num_thoughts_allowed if transaction does not exist
+    if payment_transaction.is_none() {
+        ic_cdk::println!("inc_max_num_thoughts_limit: adding new limt: {}", add_limit);
+
+        let cur_max_num_thoughts_allowed = get_max_num_thoughts_allowed();
+        STATE.with(|state| {
+            state.borrow_mut().max_num_thoughts_allowed =
+                cur_max_num_thoughts_allowed + add_limit as u64;
+        });
+
+        // insert payment transaction
+        let now: Timestamp = time();
+        let new_payment_transaction = PaymentTransaction {
+            transaction_id: payment_transcation_id.clone(),
+            created_at: now,
+        };
+
+        STATE.with(|s| {
+            s.borrow_mut()
+                .stable_paymenttransaction_data
+                .push(&new_payment_transaction)
+                .expect("call to inc_max_num_thoughts_limit failed")
+        });
+    } else {
+        ic_cdk::println!("inc_max_num_thoughts_limit: the payment transaction already exists");
+    }
+}
+
+// ---------------------- HTTP Handler ----------------------------------
+fn get_path(url: &str) -> Option<&str> {
+    url.split('?').next()
+}
+
+fn get_header(headers: Vec<HeaderField>, key: &str) -> Option<String> {
+    let header = headers.iter().find(|&x| x.0 == key);
+    match header {
+        Some(h) => Some(h.1.clone()),
+        None => None,
+    }
+}
+
+#[ic_cdk_macros::update]
+#[candid_method(update)]
+fn http_request(request: HttpRequest) -> HttpResponse {
+    let path = get_path(request.url.as_str()).unwrap_or("/");
+    match path {
+        "/inc_max_num_thoughts_limit" => {
+            let headers = request.headers;
+            let billing_key: String = get_header(headers.clone(), "billing_key").unwrap();
+            let payment_transcation_id =
+                get_header(headers.clone(), "payment_transcation_id").unwrap();
+            let add_limit = get_header(headers.clone(), "add_limit").unwrap();
+
+            // convert add_limit to u32
+            let add_limit: u32 = add_limit.parse().unwrap();
+
+            inc_max_num_thoughts_limit(billing_key, payment_transcation_id, add_limit);
+
+            return HttpResponse {
+                status_code: 200,
+                headers: Vec::new(),
+                body: Vec::new(),
+            };
+        }
+        _ => HttpResponse {
+            status_code: 404,
+            headers: Vec::new(),
+            body: path.as_bytes().to_vec(),
+        },
+    }
 }
 
 // ---------------------- Canister upgrade process ----------------------
@@ -889,7 +1053,7 @@ fn cycles_used() -> u64 {
 // ---------------------- Candid declarations did file generator ----------------------
 #[cfg(test)]
 mod tests {
-    use crate::datatype::{ChatHistory, Goal};
+    use crate::datatype::{ChatHistory, Goal, HttpRequest, HttpResponse};
     use candid::{export_service, Principal};
 
     #[test]
