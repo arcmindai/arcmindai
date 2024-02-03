@@ -853,6 +853,12 @@ pub fn is_exceed_max_num_thoughts_allowed() -> bool {
     return num_thoughts_processed > max_num_thoughts_allowed;
 }
 
+#[query]
+#[candid_method(query)]
+pub fn is_paused() -> bool {
+    return STATE.with(|state| (*state.borrow()).is_pause_chain_of_thoughts.unwrap());
+}
+
 #[update(guard = "assert_owner")]
 #[candid_method(update)]
 pub fn update_owner(new_owner: Principal) {
