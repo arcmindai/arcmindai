@@ -12,6 +12,17 @@ type Goal = record {
   created_at : nat64;
 };
 type GoalStatus = variant { Complete; Scheduled; Running };
+type HttpRequest = record {
+  url : text;
+  method : text;
+  body : vec nat8;
+  headers : vec record { text; text };
+};
+type HttpResponse = record {
+  body : vec nat8;
+  headers : vec record { text; text };
+  status_code : nat16;
+};
 service : (
   opt principal,
   opt principal,
@@ -31,9 +42,11 @@ service : (
   get_owner : () -> (opt principal) query;
   get_tools_canister : () -> (opt principal) query;
   get_vector_canister : () -> (opt principal) query;
+  http_request : (HttpRequest) -> (HttpResponse);
   inc_max_num_thoughts_limit : (text, text, nat32) -> ();
   insert_goal : (text) -> ();
   is_exceed_max_num_thoughts_allowed : () -> (bool) query;
+  is_paused : () -> (bool) query;
   start_new_goal : (text) -> ();
   toggle_pause_cof : () -> ();
   update_owner : (principal) -> ();

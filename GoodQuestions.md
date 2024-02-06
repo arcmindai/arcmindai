@@ -8,3 +8,4 @@ Give me some ideas for the primary and secondary color for an AI startup design 
 What is Trinity Portfolio? Answer based on your past events only.
 What is NMN? Answer based on your past events only.
 What is the current US federal interest rate?
+How does Australia RBA interest rate affect Brisbane housing market this year?
