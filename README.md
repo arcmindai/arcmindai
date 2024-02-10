@@ -73,7 +73,7 @@ Once the environment variables and local ICP Ledger are all set up, you can run 
 dfx start --background
 
 # Deploys controller and brain canisters to the local replica
-./scripts/provision.sh
+./scripts/provision-instance.sh
 ```
 
 The provision script will deploy a suite of canisters.

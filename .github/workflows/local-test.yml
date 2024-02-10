@@ -35,7 +35,7 @@ jobs:
         run: dfx start --clean --background
       - name: Build and Deploy locally
         id: provision
-        run: scripts/provision.sh
+        run: scripts/provision-instance.sh
         env:
           IC_NETWORK: local
           OWNER_PRINCIPAL: ${{ secrets.OWNER_PRINCIPAL }}
