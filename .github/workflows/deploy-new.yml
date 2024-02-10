@@ -32,7 +32,7 @@ jobs:
           DFX_WALLETS: ${{ secrets.DFX_WALLETS_PROD }}
       - name: Provision a new suite of ArcMind Canisters to IC mainnet
         id: provision
-        run: scripts/provision.sh
+        run: scripts/provision-instance.sh
         env:
           IC_NETWORK: ic
           OWNER_PRINCIPAL: ${{ secrets.OWNER_PRINCIPAL }}
