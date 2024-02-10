@@ -1,9 +1,8 @@
 # Arcmind Autonomous AI Agent
 
-ArcMind AI brings Generative AI to organizations using Autonomous AI Agent and Vector DB running on blockchain, in a privacy-centric and decentralized way. It supercharges your AI workforce with increased LLM faithfulness powered by Chain of Thoughts & Long Term Memory.
+ArcMind AI brings Generative AI to organizations using [Autonomous AI Agent](https://www.thoughtworks.com/radar/techniques/llm-powered-autonomous-agents) and [Vector DB](https://developers.cloudflare.com/vectorize/reference/what-is-a-vector-database/) running on [Internet Computer](https://internetcomputer.org/) blockchain, in a privacy-centric and decentralized way. It supercharges your AI workforce with increased LLM faithfulness powered by [Chain of Thoughts](https://blog.research.google/2022/05/language-models-perform-reasoning-via.html) & Long Term Memory.
 
-Technically, ArcMind AI is a Long-Running Agent equipped with a primary main loop that can orchestrate various tools and memory stores to accomplish numerous sub-tasks that make up a larger task. Utilizing the power of LLMs such as GPT-3/4 or other open-source alternatives, these agents can retain both short-term and long-term memory for optimized task execution. For ArcMind, we leverage ArcMind Vector DB Canister as a long-term memory vector store for
-semantic search, enabling efficient and accurate task execution.
+Technically, ArcMind AI is a Long-Running Agent equipped with a primary main loop that can orchestrate various tools and memory stores to accomplish numerous sub-tasks that make up a larger task. Utilizing the power of LLMs such as GPT-3/4 or other open-source alternatives, these agents can retain both short-term and long-term memory for optimized task execution. For ArcMind, we leverage ArcMind Vector DB Canister as a long-term memory vector store for semantic search, enabling efficient and accurate task execution.
 
 - Every user will have their own suite of Canisters and long-term memory, that can be accessed by their NFID with [ArcMindWeb](https://arcmindai.app/)
 - ArcMind AI can communicate with other Canister smart contracts to take action on behalf of users e.g connect to [BeamFi smart contracts](https://github.com/BeamFi/BeamFiProtocol) to stream payment to other users
@@ -95,7 +94,7 @@ ArcMind is composed of 4 canisters with a Main loop controller being the orchest
 1. [Main loop controller](src/arcmindai_controller/)
 1. [Brain connecting to LLM](src/arcmindai_brain/)
 1. [Tools](src/arcmindai_tools/)
-1. [Vector DB](arcmindaivector/) Git submodule, an individual Github repository at [ArcMind Vector](https://github.com/arcmindai/arcmindvector)
+1. Vector DB - Git submodule, an individual Github repository at [ArcMind Vector](https://github.com/arcmindai/arcmindvector)
 
 The `brain` canister could either connect to LLM remotely or locally hosted open-source LLM like [LLama2](https://github.com/facebookresearch/llama) in the future.
 
@@ -155,3 +154,7 @@ Ideas, Code & Architecture: Henry Chan, [henry@arcmindai.app](mailto:henry@arcmi
 ## References
 
 - [Internet Computer](https://internetcomputer.org)
+- [Google Research - Language Models Perform Reasoning via Chain of Thought](https://blog.research.google/2022/05/language-models-perform-reasoning-via.html)
+- [ThoughtsWorks - LLM-powered autonomous agents](https://www.thoughtworks.com/radar/techniques/llm-powered-autonomous-agents)
+- [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629)
+- [AutoGPT](https://github.com/Significant-Gravitas/AutoGPT)
