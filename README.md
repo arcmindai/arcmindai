@@ -121,6 +121,7 @@ We have some [sample shell scripts](/interact) to interact with the controller b
 - [ ] Superalignment - Research on problem decomposition approach to encourage context independent reasoning
 - [ ] Superalignment - Introduce mentor agent for Cof agent to proactively seek help from when it needs, with a new set of commands and resources
 - [ ] Superalignment - Improve prompt engineering to introduce human values and ethics into the AI
+- [ ] Integration - Connect to Zapier and IFTTT to allow users to connect to other services and define their own commands for Chain of Thoughts process
 
 ## Setting up Github Action CI / CD
 
