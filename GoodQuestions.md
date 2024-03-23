@@ -10,4 +10,5 @@ What is Trinity Portfolio? Answer based on your past events only.
 What is the health benefits of NMN for longevity?
 What is NMN? Answer based on your past events only.
 What is the current US federal interest rate?
+Can you predict the future US interest rate?
 How does Australia RBA interest rate affect Brisbane housing market this year?
