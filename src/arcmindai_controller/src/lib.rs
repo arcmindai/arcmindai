@@ -878,6 +878,19 @@ pub fn toggle_pause_cof() {
     });
 }
 
+#[query]
+#[candid_method(query)]
+pub fn get_version() -> u16 {
+    2
+}
+
+/// Returns the amount of cycles used since the beginning of the execution.
+#[query]
+#[candid_method(query)]
+fn cycles_used() -> u64 {
+    CYCLES_USED.load(Ordering::Relaxed)
+}
+
 #[update]
 #[candid_method(update)]
 // Idempotent function to increment max_num_thoughts_allowed for the payment_transaction_id, only apply one
@@ -1070,14 +1083,6 @@ fn track_cycles_used() {
     // Store the difference between the initial and the current balance.
     let cycles_used = INITIAL_CANISTER_BALANCE.load(Ordering::Relaxed) - current_canister_balance;
     CYCLES_USED.store(cycles_used, Ordering::Relaxed);
-}
-
-/// Returns the amount of cycles used since the beginning of the execution.
-///
-/// Example usage: `dfx canister call timer cycles_used`
-#[query]
-fn cycles_used() -> u64 {
-    CYCLES_USED.load(Ordering::Relaxed)
 }
 
 // ---------------------- Candid declarations did file generator ----------------------

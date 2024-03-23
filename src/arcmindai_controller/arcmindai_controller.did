@@ -21,6 +21,7 @@ type HttpRequest = record {
 type HttpResponse = record {
   body : vec nat8;
   headers : vec record { text; text };
+  upgrade : bool;
   status_code : nat16;
 };
 service : (
@@ -33,6 +34,7 @@ service : (
   opt text,
 ) -> {
   clear_all_goals : () -> ();
+  cycles_used : () -> (nat64) query;
   get_beamfi_canister : () -> (opt principal) query;
   get_brain_canister : () -> (opt principal) query;
   get_chathistory : () -> (vec ChatHistory) query;
@@ -42,7 +44,9 @@ service : (
   get_owner : () -> (opt principal) query;
   get_tools_canister : () -> (opt principal) query;
   get_vector_canister : () -> (opt principal) query;
-  http_request : (HttpRequest) -> (HttpResponse);
+  get_version : () -> (nat16) query;
+  http_request : (HttpRequest) -> (HttpResponse) query;
+  http_request_update : (HttpRequest) -> (HttpResponse);
   inc_max_num_thoughts_limit : (text, text, nat32) -> ();
   insert_goal : (text) -> ();
   is_exceed_max_num_thoughts_allowed : () -> (bool) query;
