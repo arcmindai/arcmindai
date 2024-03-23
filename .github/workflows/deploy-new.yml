@@ -20,10 +20,9 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           rustup target add wasm32-unknown-unknown
       - name: Install DFX
-        run: echo y | sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"
-        env:
-          DFX_VERSION: 0.15.2
-          DFXVM_INIT_YES: true
+        uses: dfinity/setup-dfx@main
+        with:
+          dfx-version: '0.15.2'
       - name: Fetch git submodule arcmindvector
         run: git submodule update --init --recursive
       - name: Add DFX identity and wallets
