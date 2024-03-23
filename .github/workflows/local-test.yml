@@ -24,6 +24,7 @@ jobs:
         run: echo y | sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"
         env:
           DFX_VERSION: 0.15.2
+          DFXVM_INIT_YES: true
       - name: Add DFX identity and wallets
         run: ./scripts/add-ic-identity.sh
         env:
