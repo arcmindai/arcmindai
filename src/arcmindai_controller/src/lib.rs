@@ -878,6 +878,20 @@ pub fn toggle_pause_cof() {
     });
 }
 
+#[query]
+#[candid_method(query)]
+pub fn get_version() -> u16 {
+    2
+}
+
+/// Returns the amount of cycles used since the beginning of the execution.
+#[query]
+#[candid_method(query)]
+fn cycles_used() -> u64 {
+    CYCLES_USED.load(Ordering::Relaxed)
+}
+
+#[update]
 #[candid_method(update)]
 // Idempotent function to increment max_num_thoughts_allowed for the payment_transaction_id, only apply one
 pub fn inc_max_num_thoughts_limit(
@@ -889,11 +903,6 @@ pub fn inc_max_num_thoughts_limit(
     let cur_billing_key = STATE
         .with(|state| (*state.borrow()).billing_key.clone())
         .unwrap();
-
-    STATE.with(|state| {
-        let cur_state = state.borrow().num_thoughts_processed;
-        state.borrow_mut().num_thoughts_processed = cur_state + add_limit as u64;
-    });
 
     // verify billing_key == cur_billing_key
     if billing_key != cur_billing_key {
@@ -947,10 +956,36 @@ fn get_header(headers: Vec<HeaderField>, key: &str) -> Option<String> {
     }
 }
 
+#[ic_cdk_macros::query]
+#[candid_method(query)]
+pub fn http_request(request: HttpRequest) -> HttpResponse {
+    let path = get_path(request.url.as_str()).unwrap_or("/");
+    ic_cdk::println!("http_request: {}", path);
+
+    match path {
+        "/inc_max_num_thoughts_limit" => {
+            return HttpResponse {
+                status_code: 200,
+                headers: Vec::new(),
+                body: Vec::new(),
+                upgrade: true,
+            };
+        }
+        _ => HttpResponse {
+            status_code: 404,
+            headers: Vec::new(),
+            body: path.as_bytes().to_vec(),
+            upgrade: false,
+        },
+    }
+}
+
 #[ic_cdk_macros::update]
 #[candid_method(update)]
-fn http_request(request: HttpRequest) -> HttpResponse {
+pub fn http_request_update(request: HttpRequest) -> HttpResponse {
     let path = get_path(request.url.as_str()).unwrap_or("/");
+    ic_cdk::println!("http_request_update: {}", path);
+
     match path {
         "/inc_max_num_thoughts_limit" => {
             let headers = request.headers;
@@ -968,12 +1003,14 @@ fn http_request(request: HttpRequest) -> HttpResponse {
                 status_code: 200,
                 headers: Vec::new(),
                 body: Vec::new(),
+                upgrade: false,
             };
         }
         _ => HttpResponse {
             status_code: 404,
             headers: Vec::new(),
             body: path.as_bytes().to_vec(),
+            upgrade: false,
         },
     }
 }
@@ -1046,14 +1083,6 @@ fn track_cycles_used() {
     // Store the difference between the initial and the current balance.
     let cycles_used = INITIAL_CANISTER_BALANCE.load(Ordering::Relaxed) - current_canister_balance;
     CYCLES_USED.store(cycles_used, Ordering::Relaxed);
-}
-
-/// Returns the amount of cycles used since the beginning of the execution.
-///
-/// Example usage: `dfx canister call timer cycles_used`
-#[query]
-fn cycles_used() -> u64 {
-    CYCLES_USED.load(Ordering::Relaxed)
 }
 
 // ---------------------- Candid declarations did file generator ----------------------
