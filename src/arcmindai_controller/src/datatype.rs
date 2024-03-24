@@ -164,5 +164,11 @@ pub struct HttpResponse {
     pub headers: Vec<HeaderField>,
     #[serde(with = "serde_bytes")]
     pub body: Vec<u8>,
-    pub upgrade: bool,
+    /// Whether the query call should be upgraded to an update call.
+    pub upgrade: Option<bool>,
+}
+
+// ---------------------- HTTP Handler ----------------------------------
+pub fn get_path(url: &str) -> Option<&str> {
+    url.split('?').next()
 }

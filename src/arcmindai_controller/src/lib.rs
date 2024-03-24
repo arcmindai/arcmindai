@@ -16,9 +16,9 @@ use ic_stable_structures::{writer::Writer, Memory as _, StableVec};
 
 mod datatype;
 use datatype::{
-    ChatDisplayHistory, ChatHistory, ChatRole, Embeddings, Goal, GoalStatus, HeaderField,
-    HttpRequest, HttpResponse, PaymentTransaction, PlainDoc, PromptContext, Timestamp, VecDoc,
-    VecQuery, WebQueryPromptContext, PROMPT_CMD_BEAMFI_STREAM_PAYMENT, PROMPT_CMD_BROWSE_WEBSITE,
+    ChatDisplayHistory, ChatHistory, ChatRole, Embeddings, Goal, GoalStatus, HttpRequest,
+    HttpResponse, PaymentTransaction, PlainDoc, PromptContext, Timestamp, VecDoc, VecQuery,
+    WebQueryPromptContext, PROMPT_CMD_BEAMFI_STREAM_PAYMENT, PROMPT_CMD_BROWSE_WEBSITE,
     PROMPT_CMD_DO_NOTHING, PROMPT_CMD_GOOGLE, PROMPT_CMD_SHUTDOWN, PROMPT_CMD_START_AGENT,
     PROMPT_CMD_WRITE_FILE_AND_SHUTDOWN, TOP_CMD_AGENT_NAME, TOP_CMD_AGENT_TASK,
     VEC_SEARCH_TOP_K_NN,
@@ -51,6 +51,8 @@ use beamfi_stream::BeamFiPlugin;
 pub mod plugin_types;
 
 use async_recursion::async_recursion;
+
+use crate::datatype::get_path;
 
 const MIN_INTERVAL_SECS: u64 = 3;
 const RECENT_CHAT_HISTORY: usize = 40;
@@ -943,22 +945,8 @@ pub fn inc_max_num_thoughts_limit(
     }
 }
 
-// ---------------------- HTTP Handler ----------------------------------
-fn get_path(url: &str) -> Option<&str> {
-    url.split('?').next()
-}
-
-fn get_header(headers: Vec<HeaderField>, key: &str) -> Option<String> {
-    let header = headers.iter().find(|&x| x.0 == key);
-    match header {
-        Some(h) => Some(h.1.clone()),
-        None => None,
-    }
-}
-
-#[ic_cdk_macros::query]
-#[candid_method(query)]
-pub fn http_request(request: HttpRequest) -> HttpResponse {
+#[ic_cdk::query]
+fn http_request(request: HttpRequest) -> HttpResponse {
     let path = get_path(request.url.as_str()).unwrap_or("/");
     ic_cdk::println!("http_request: {}", path);
 
@@ -968,49 +956,95 @@ pub fn http_request(request: HttpRequest) -> HttpResponse {
                 status_code: 200,
                 headers: Vec::new(),
                 body: Vec::new(),
-                upgrade: true,
+                upgrade: Some(true),
             };
         }
         _ => HttpResponse {
             status_code: 404,
             headers: Vec::new(),
             body: path.as_bytes().to_vec(),
-            upgrade: false,
+            upgrade: Some(false),
         },
     }
 }
 
-#[ic_cdk_macros::update]
-#[candid_method(update)]
-pub fn http_request_update(request: HttpRequest) -> HttpResponse {
+#[ic_cdk::update]
+fn http_request_update(request: HttpRequest) -> HttpResponse {
     let path = get_path(request.url.as_str()).unwrap_or("/");
     ic_cdk::println!("http_request_update: {}", path);
 
     match path {
         "/inc_max_num_thoughts_limit" => {
-            let headers = request.headers;
-            let billing_key: String = get_header(headers.clone(), "billing_key").unwrap();
-            let payment_transcation_id =
-                get_header(headers.clone(), "payment_transcation_id").unwrap();
-            let add_limit = get_header(headers.clone(), "add_limit").unwrap();
+            let body = request.body.clone();
+
+            //convert body to JSON string
+            let body_str = String::from_utf8(body).unwrap();
+
+            // parse body_str to JSON object
+            let body_json = serde_json::from_str::<serde_json::Value>(&body_str);
+            if body_json.is_err() {
+                return HttpResponse {
+                    status_code: 400,
+                    headers: Vec::new(),
+                    body: "Invalid JSON body".as_bytes().to_vec(),
+                    upgrade: Some(false),
+                };
+            }
+            // get billing_key from body_json
+            let body_json_unwrap = body_json.unwrap();
+            let billing_key = body_json_unwrap["billing_key"].as_str();
+            if billing_key.is_none() {
+                return HttpResponse {
+                    status_code: 400,
+                    headers: Vec::new(),
+                    body: "Invalid billing_key".as_bytes().to_vec(),
+                    upgrade: Some(false),
+                };
+            }
+
+            // get payment_transcation_id from body_json
+            let payment_transcation_id = body_json_unwrap["payment_transcation_id"].as_str();
+            if payment_transcation_id.is_none() {
+                return HttpResponse {
+                    status_code: 400,
+                    headers: Vec::new(),
+                    body: "Invalid payment_transcation_id".as_bytes().to_vec(),
+                    upgrade: Some(false),
+                };
+            }
+
+            // get add_limit from body_json
+            let add_limit = body_json_unwrap["add_limit"].as_i64();
+            if add_limit.is_none() {
+                return HttpResponse {
+                    status_code: 400,
+                    headers: Vec::new(),
+                    body: "Invalid add_limit".as_bytes().to_vec(),
+                    upgrade: Some(false),
+                };
+            }
 
             // convert add_limit to u32
-            let add_limit: u32 = add_limit.parse().unwrap();
+            let add_limit = add_limit.unwrap_or(0) as u32;
 
-            inc_max_num_thoughts_limit(billing_key, payment_transcation_id, add_limit);
+            inc_max_num_thoughts_limit(
+                billing_key.unwrap().to_string(),
+                payment_transcation_id.unwrap().to_string(),
+                add_limit,
+            );
 
             return HttpResponse {
                 status_code: 200,
                 headers: Vec::new(),
                 body: Vec::new(),
-                upgrade: false,
+                upgrade: Some(false),
             };
         }
         _ => HttpResponse {
             status_code: 404,
             headers: Vec::new(),
             body: path.as_bytes().to_vec(),
-            upgrade: false,
+            upgrade: Some(false),
         },
     }
 }
@@ -1088,7 +1122,7 @@ fn track_cycles_used() {
 // ---------------------- Candid declarations did file generator ----------------------
 #[cfg(test)]
 mod tests {
-    use crate::datatype::{ChatHistory, Goal, HttpRequest, HttpResponse};
+    use crate::datatype::{ChatHistory, Goal};
     use candid::{export_service, Principal};
 
     #[test]
