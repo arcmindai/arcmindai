@@ -82,10 +82,10 @@ The provision script will deploy a suite of canisters.
 
 Architecture
 
-![Architecture](diagram/architecture.png)
+![Architecture](diagram/arcmindai-architecture.png)
 
 Chain of Thoughts
-![Chain Of Thoughts](diagram/chainofthoughts.png)
+![Chain Of Thoughts](diagram/arcmindai-chainofthoughts.png)
 
 ## Canisters
 
