@@ -361,6 +361,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "cycles_battery"
+version = "0.1.0"
+dependencies = [
+ "async-recursion",
+ "async-trait",
+ "candid 0.8.4",
+ "ciborium",
+ "ic-cdk 0.7.4",
+ "ic-cdk-macros 0.6.10",
+ "ic-cdk-timers",
+ "ic-ledger-types",
+ "ic-stable-structures",
+ "ic_principal",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "time",
+]
+
+[[package]]
 name = "data-encoding"
 version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
