@@ -57,12 +57,11 @@ use crate::datatype::get_path;
 // 3 secs
 const NEW_GOALS_CHECK_MIN_INTERVAL_SECS: u64 = 3;
 // 3 days
-// const CYCLES_BALANCE_CHECK_MIN_INTERVAL_SECS: u64 = 60 * 60 * 24 * 3;
-const CYCLES_BALANCE_CHECK_MIN_INTERVAL_SECS: u64 = 5;
+const CYCLES_BALANCE_CHECK_MIN_INTERVAL_SECS: u64 = 60 * 60 * 24 * 3;
 // Cycle usage threshold
 const CYCLES_ONE_TC: u64 = 1_000_000_000_000;
-const CYCLES_THRESHOLD: u64 = 4 * CYCLES_ONE_TC;
-const CYCLES_TOPUP_AMT: u64 = 2 * CYCLES_ONE_TC;
+const CYCLES_THRESHOLD: u64 = 3 * CYCLES_ONE_TC;
+const CYCLES_TOPUP_AMT: u64 = 4 * CYCLES_ONE_TC;
 
 const CYCLES_TOPUP_GROUP: &str = "arcmindai_controller";
 
