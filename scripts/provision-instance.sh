@@ -31,6 +31,16 @@ if [[ -z "${BILLING_KEY}" ]]; then
   exit 1
 fi
 
+if [[ -z "${BATTERY_API_KEY}" ]]; then
+  echo "BATTERY_API_KEY is unset."
+  exit 1
+fi
+
+if [[ -z "${BATTERY_PRINCIAL}" ]]; then
+  echo "BATTERY_PRINCIAL is unset."
+  exit 1
+fi
+
 GPT_MODEL=gpt-4
 BROWSE_WEBSITE_GPT_MODEL=gpt-3.5-turbo-1106
 
@@ -72,8 +82,8 @@ dfx canister --network $IC_NETWORK call arcmindai_tools get_owner
 TOOLS_PRINCIPAL=$(dfx canister --network $IC_NETWORK id arcmindai_tools)
 
 # Deploy controller canister
-echo Deploying controller canister with owner $OWNER_PRINCIPAL, brain $BRAIN_PRINCIPAL, tools $TOOLS_PRINCIPAL, vector $VECTOR_PRINCIPAL, beamfi $BEAMFI_PRINCIPAL, browse_website_gpt_model $BROWSE_WEBSITE_GPT_MODEL, billing_key $BILLING_KEY on $IC_NETWORK
-dfx deploy --network $IC_NETWORK arcmindai_controller --argument "(opt principal \"$OWNER_PRINCIPAL\", opt principal \"$BRAIN_PRINCIPAL\", opt principal \"$TOOLS_PRINCIPAL\", opt principal \"$VECTOR_PRINCIPAL\", opt principal \"$BEAMFI_PRINCIPAL\", opt \"$BROWSE_WEBSITE_GPT_MODEL\", opt \"$BILLING_KEY\")"
+echo Deploying controller canister with owner=$OWNER_PRINCIPAL, brain=$BRAIN_PRINCIPAL, browse_website_gpt_model=$BROWSE_WEBSITE_GPT_MODEL, tools=$TOOLS_PRINCIPAL, VECTOR_PRINCIPAL=$VECTOR_PRINCIPAL, BEAMFI_PRINCIPAL=$BEAMFI_PRINCIPAL, BATTERY_PRINCIAL=$BATTERY_PRINCIAL, BILLING_KEY=$BILLING_KEY, BATTERY_API_KEY=$BATTERY_API_KEY on $IC_NETWORK
+dfx deploy --network $IC_NETWORK arcmindai_controller --argument "(opt principal \"$OWNER_PRINCIPAL\", opt principal \"$BRAIN_PRINCIPAL\", opt principal \"$TOOLS_PRINCIPAL\", opt principal \"$VECTOR_PRINCIPAL\", opt principal \"$BEAMFI_PRINCIPAL\", opt principal \"$BATTERY_PRINCIAL\", opt \"$BROWSE_WEBSITE_GPT_MODEL\", opt \"$BILLING_KEY\", opt \"$BATTERY_API_KEY\")"
 
 echo Controller Owner:
 dfx canister --network $IC_NETWORK call arcmindai_controller get_owner

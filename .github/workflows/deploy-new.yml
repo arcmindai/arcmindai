@@ -41,6 +41,8 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           BEAMFI_PRINCIPAL: ${{ secrets.BEAMFI_PRINCIPAL }}
           BILLING_KEY: ${{ secrets.BILLING_KEY }}
+          BATTERY_API_KEY: ${{ secrets.BATTERY_API_KEY }}
+          BATTERY_PRINCIAL: ${{ secrets.BATTERY_PRINCIAL }}
       - name: Debug URL
         run: echo https://completedeploy-4gbndkvjta-uc.a.run.app?apiKey=${{ secrets.FB_API_KEY }}&canisterId=${{ steps.provision.outputs.controller_principal }}
       - name: Call Firebase Function /complete_deploy and assert HTTP status 200
