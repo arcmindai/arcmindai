@@ -1158,7 +1158,18 @@ fn pre_upgrade() {
 }
 
 #[post_upgrade]
-fn post_upgrade() {
+fn post_upgrade(
+    _owner: Option<Principal>,
+    _brain_canister: Option<Principal>,
+    _tools_canister: Option<Principal>,
+    _vector_canister: Option<Principal>,
+    _beamfi_canister: Option<Principal>,
+    battery_canister: Option<Principal>,
+    _browse_website_gpt_model: Option<String>,
+    _billing_key: Option<String>,
+    battery_api_key: Option<String>,
+) {
+    // perform memory upgrade
     let memory = memory::get_upgrades_memory();
 
     // Read the length of the state bytes.
@@ -1173,6 +1184,18 @@ fn post_upgrade() {
     // Deserialize and set the state.
     let state = ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
     STATE.with(|s| *s.borrow_mut() = state);
+
+    // Update newly added state in the latest version state using argument
+    STATE.with(|s| {
+        s.borrow_mut().battery_canister = battery_canister;
+        s.borrow_mut().battery_api_key = battery_api_key.clone();
+    });
+
+    // log update of battery_canister
+    ic_cdk::println!(
+        "Controller canisters: post_upgrade: battery_canister: {:?}",
+        battery_canister,
+    );
 
     // Start the periodic tasks
     start_new_goals_check_timer(NEW_GOALS_CHECK_MIN_INTERVAL_SECS);
