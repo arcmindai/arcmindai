@@ -23,6 +23,7 @@ service : (
   opt text,
   opt text,
 ) -> {
+  check_cycles_and_topup : () -> ();
   clear_all_goals : () -> ();
   cycles_used : () -> (nat64) query;
   get_battery_canister : () -> (opt principal) query;

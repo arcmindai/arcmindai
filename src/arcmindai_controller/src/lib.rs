@@ -181,12 +181,18 @@ async fn process_new_goals() {
 }
 
 //  Check if the cycles balance is below the threshold, and topup from Cycles Battery canister if necessary
+#[update]
+#[candid_method(update)]
 async fn check_cycles_and_topup() {
     // Get the cycles balance
     let current_canister_balance = ic_cdk::api::canister_balance();
 
     // log the cycles balance
     ic_cdk::println!("Current canister balance: {}", current_canister_balance);
+
+    let battery_api_key: Option<String> =
+        STATE.with(|state| (*state.borrow()).battery_api_key.clone());
+    let battery_canister = STATE.with(|state| (*state.borrow()).battery_canister.unwrap());
 
     // Make Topup request if the balance is below the threshold
     if current_canister_balance < CYCLES_THRESHOLD {
@@ -196,13 +202,8 @@ async fn check_cycles_and_topup() {
         // convert cycles_topup to u128
         let cycles_topup_input: u128 = cycles_topup as u128;
 
-        // group_name: String, api_key: String, req_cycles_amount: u128, cycles_balance: u64,
-        let battery_api_key: Option<String> =
-            STATE.with(|state| (*state.borrow()).battery_api_key.clone());
-        let battery_canister = STATE.with(|state| (*state.borrow()).battery_canister.unwrap());
-
         let (result,): (Result<(), String>,) = ic_cdk::api::call::call(
-            battery_canister,
+            battery_canister.clone(),
             "topup_cycles",
             (
                 CYCLES_TOPUP_GROUP,
@@ -221,6 +222,24 @@ async fn check_cycles_and_topup() {
         }
     } else {
         ic_cdk::println!("Cycles balance is above the threshold");
+
+        let (result,): (Result<(), String>,) = ic_cdk::api::call::call(
+            battery_canister.clone(),
+            "log_cycles",
+            (
+                CYCLES_TOPUP_GROUP,
+                battery_api_key.unwrap(),
+                current_canister_balance,
+            ),
+        )
+        .await
+        .expect("call to ask failed");
+
+        if result.is_ok() {
+            ic_cdk::println!("Cycles balance logged: {}", current_canister_balance);
+        } else {
+            ic_cdk::println!("Cycles balance log failed: {}", result.unwrap_err());
+        }
     }
 }
 
@@ -953,7 +972,7 @@ pub fn toggle_pause_cof() {
 #[query]
 #[candid_method(query)]
 pub fn get_version() -> u16 {
-    2
+    3
 }
 
 /// Returns the amount of cycles used since the beginning of the execution.
