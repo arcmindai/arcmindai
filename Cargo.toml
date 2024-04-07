@@ -2,7 +2,8 @@
 members = [
     "src/arcmindai_controller",
     "src/arcmindai_brain",
-    "src/arcmindai_tools"
+    "src/arcmindai_tools",
+    "src/cycles_battery"
 ]
 
 [profile.release]

@@ -54,7 +54,18 @@ use async_recursion::async_recursion;
 
 use crate::datatype::get_path;
 
-const MIN_INTERVAL_SECS: u64 = 3;
+// 3 secs
+const NEW_GOALS_CHECK_MIN_INTERVAL_SECS: u64 = 3;
+// 3 days
+// const CYCLES_BALANCE_CHECK_MIN_INTERVAL_SECS: u64 = 60 * 60 * 24 * 3;
+const CYCLES_BALANCE_CHECK_MIN_INTERVAL_SECS: u64 = 5;
+// Cycle usage threshold
+const CYCLES_ONE_TC: u64 = 1_000_000_000_000;
+const CYCLES_THRESHOLD: u64 = 4 * CYCLES_ONE_TC;
+const CYCLES_TOPUP_AMT: u64 = 2 * CYCLES_ONE_TC;
+
+const CYCLES_TOPUP_GROUP: &str = "arcmindai_controller";
+
 const RECENT_CHAT_HISTORY: usize = 40;
 const DATE_TIME_FORMAT: &str = "[year]-[month]-[day] [hour]:[minute]:[second]";
 const MAX_NUM_COF_PER_GOAL: u16 = 60;
@@ -68,9 +79,11 @@ pub struct State {
     pub tools_canister: Option<Principal>,
     pub vector_canister: Option<Principal>,
     pub beamfi_canister: Option<Principal>,
+    pub battery_canister: Option<Principal>,
 
     pub is_pause_chain_of_thoughts: Option<bool>,
     pub browse_website_gpt_model: Option<String>,
+    pub battery_api_key: Option<String>,
 
     pub max_num_thoughts_allowed: u64,
     pub num_thoughts_processed: u64,
@@ -94,8 +107,10 @@ impl Default for State {
             tools_canister: None,
             vector_canister: None,
             beamfi_canister: None,
+            battery_canister: None,
             is_pause_chain_of_thoughts: Some(false),
             browse_website_gpt_model: None,
+            battery_api_key: None,
             max_num_thoughts_allowed: DEFAULT_MAX_NUM_THOUGHTS_ALLOWED as u64,
             num_thoughts_processed: 0,
             billing_key: None,
@@ -164,6 +179,50 @@ async fn process_new_goals() {
     }
 
     track_cycles_used();
+}
+
+//  Check if the cycles balance is below the threshold, and topup from Cycles Battery canister if necessary
+async fn check_cycles_and_topup() {
+    // Get the cycles balance
+    let current_canister_balance = ic_cdk::api::canister_balance();
+
+    // log the cycles balance
+    ic_cdk::println!("Current canister balance: {}", current_canister_balance);
+
+    // Make Topup request if the balance is below the threshold
+    if current_canister_balance < CYCLES_THRESHOLD {
+        ic_cdk::println!("Cycles balance is below the threshold");
+
+        let cycles_topup: u64 = CYCLES_TOPUP_AMT;
+        // convert cycles_topup to u128
+        let cycles_topup_input: u128 = cycles_topup as u128;
+
+        // group_name: String, api_key: String, req_cycles_amount: u128, cycles_balance: u64,
+        let battery_api_key: Option<String> =
+            STATE.with(|state| (*state.borrow()).battery_api_key.clone());
+        let battery_canister = STATE.with(|state| (*state.borrow()).battery_canister.unwrap());
+
+        let (result,): (Result<(), String>,) = ic_cdk::api::call::call(
+            battery_canister,
+            "topup_cycles",
+            (
+                CYCLES_TOPUP_GROUP,
+                battery_api_key.unwrap(),
+                cycles_topup_input,
+                current_canister_balance,
+            ),
+        )
+        .await
+        .expect("call to ask failed");
+
+        if result.is_ok() {
+            ic_cdk::println!("Cycles balance topped up by {}", cycles_topup);
+        } else {
+            ic_cdk::println!("Cycles balance topup failed: {}", result.unwrap_err());
+        }
+    } else {
+        ic_cdk::println!("Cycles balance is above the threshold");
+    }
 }
 
 fn create_cof_command(prompt: String) -> String {
@@ -779,8 +838,10 @@ fn init(
     tools_canister: Option<Principal>,
     vector_canister: Option<Principal>,
     beamfi_canister: Option<Principal>,
+    battery_canister: Option<Principal>,
     browse_website_gpt_model: Option<String>,
     billing_key: Option<String>,
+    battery_api_key: Option<String>,
 ) {
     let my_owner: Principal = owner.unwrap_or_else(|| api::caller());
     STATE.with(|state| {
@@ -790,8 +851,10 @@ fn init(
             tools_canister: tools_canister,
             vector_canister: vector_canister,
             beamfi_canister: beamfi_canister,
+            battery_canister: battery_canister,
             is_pause_chain_of_thoughts: Some(false),
             browse_website_gpt_model: browse_website_gpt_model,
+            battery_api_key: battery_api_key,
             max_num_thoughts_allowed: DEFAULT_MAX_NUM_THOUGHTS_ALLOWED as u64,
             num_thoughts_processed: 0,
             billing_key: billing_key,
@@ -801,7 +864,9 @@ fn init(
         };
     });
 
-    start_with_interval_secs(MIN_INTERVAL_SECS);
+    // Start the periodic tasks
+    start_new_goals_check_timer(NEW_GOALS_CHECK_MIN_INTERVAL_SECS);
+    start_cycles_check_timer(CYCLES_BALANCE_CHECK_MIN_INTERVAL_SECS);
 }
 
 #[query]
@@ -814,6 +879,12 @@ pub fn get_owner() -> Option<Principal> {
 #[candid_method(query)]
 pub fn get_brain_canister() -> Option<Principal> {
     STATE.with(|state| (*state.borrow()).brain_canister)
+}
+
+#[query]
+#[candid_method(query)]
+pub fn get_battery_canister() -> Option<Principal> {
+    STATE.with(|state| (*state.borrow()).battery_canister)
 }
 
 #[query]
@@ -1085,24 +1156,34 @@ fn post_upgrade() {
     let state = ciborium::de::from_reader(&*state_bytes).expect("failed to decode state");
     STATE.with(|s| *s.borrow_mut() = state);
 
-    // Start the periodic task
-    start_with_interval_secs(MIN_INTERVAL_SECS);
+    // Start the periodic tasks
+    start_new_goals_check_timer(NEW_GOALS_CHECK_MIN_INTERVAL_SECS);
+    start_cycles_check_timer(CYCLES_BALANCE_CHECK_MIN_INTERVAL_SECS);
 }
 
 // ---------------------- Periodic Task Timer ----------------------------------------------
-
 #[update]
-fn start_with_interval_secs(secs: u64) {
+fn start_new_goals_check_timer(secs: u64) {
     let secs = Duration::from_secs(secs);
     ic_cdk::println!(
         "Controller canister: checking for new scheduled goal with {secs:?} interval..."
     );
-    // Schedule a new periodic task to increment the counter.
-    // ic_cdk_timers::set_timer_interval(secs, periodic_task);
 
-    // To drive an async function to completion inside the timer handler,
-    // use `ic_cdk::spawn()`, for example:
     let timer_id = ic_cdk_timers::set_timer_interval(secs, || ic_cdk::spawn(process_new_goals()));
+
+    // Add the timer ID to the global vector.
+    TIMER_IDS.with(|timer_ids| timer_ids.borrow_mut().push(timer_id));
+}
+
+#[update]
+fn start_cycles_check_timer(secs: u64) {
+    let secs = Duration::from_secs(secs);
+    ic_cdk::println!(
+        "Controller canister: checking its cycles balance and request topup with {secs:?} interval..."
+    );
+
+    let timer_id =
+        ic_cdk_timers::set_timer_interval(secs, || ic_cdk::spawn(check_cycles_and_topup()));
 
     // Add the timer ID to the global vector.
     TIMER_IDS.with(|timer_ids| timer_ids.borrow_mut().push(timer_id));

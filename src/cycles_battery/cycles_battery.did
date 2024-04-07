@@ -1,0 +1,22 @@
+type CyclesBalanceRecord = record {
+  cycles_balance : nat64;
+  canister_id : text;
+  created_at : nat64;
+  group_name : text;
+};
+type Result = variant { Ok; Err : text };
+type TopupRecord = record {
+  req_cycles_amount : nat;
+  canister_id : text;
+  created_at : nat64;
+  group_name : text;
+};
+service : (opt principal, opt text) -> {
+  get_cycles_balance : () -> (nat64) query;
+  get_cycles_monitors : () -> (vec CyclesBalanceRecord) query;
+  get_owner : () -> (principal) query;
+  get_public_cycles_balance : () -> (nat64) query;
+  get_topup_records : () -> (vec TopupRecord) query;
+  log_cycles : (text, text, nat64) -> (Result);
+  topup_cycles : (text, text, nat, nat64) -> (Result);
+}

@@ -2,27 +2,34 @@
   "canisters": {
     "arcmindai_controller": {
       "candid": "src/arcmindai_controller/arcmindai_controller.did",
-      "package": "arcmindai_controller",
-      "type": "rust",
-      "optimize": "cycles",
-      "gzip": true,
       "declarations": {
         "node_compatibility": true
-      }
+      },
+      "gzip": true,
+      "optimize": "cycles",
+      "package": "arcmindai_controller",
+      "type": "rust"
     },
     "arcmindai_brain": {
       "candid": "src/arcmindai_brain/arcmindai_brain.did",
-      "package": "arcmindai_brain",
-      "type": "rust",
+      "gzip": true,
       "optimize": "cycles",
-      "gzip": true
+      "package": "arcmindai_brain",
+      "type": "rust"
     },
     "arcmindai_tools": {
       "candid": "src/arcmindai_tools/arcmindai_tools.did",
-      "package": "arcmindai_tools",
-      "type": "rust",
+      "gzip": true,
       "optimize": "cycles",
-      "gzip": true
+      "package": "arcmindai_tools",
+      "type": "rust"
+    },
+    "cycles_battery": {
+      "candid": "src/cycles_battery/cycles_battery.did",
+      "gzip": true,
+      "optimize": "cycles",
+      "package": "cycles_battery",
+      "type": "rust"
     }
   },
   "defaults": {
