@@ -117,10 +117,11 @@ We have some [sample shell scripts](/interact) to interact with the controller b
 - [ ] Backend - Self-hosted LLM models for improved performance and privacy
 - [ ] Backend/Frontend - Add a new Chain of Thoughts (Cof) command to allow ArcMind AI to ask user question, and prompt user to answer
 - [ ] Backend - Add ability to perform independent multi tasks in parallel e.g browser multiple websites and process at the same time
-- [ ] Superalignment - Create Supervisor AI companion to oversee Autonomous Agent (Chain of thoughts) to improve faithfulness and safety
-- [ ] Superalignment - Research on problem decomposition approach to encourage context independent reasoning
-- [ ] Superalignment - Introduce mentor agent for Cof agent to proactively seek help from when it needs, with a new set of commands and resources
-- [ ] Superalignment - Improve prompt engineering to introduce human values and ethics into the AI
+- [ ] Efficient AI - Research on hosting open source Small Language Model (SLM) on Internet Computer for inferencing workflow to improve Chain of thoughts engine performance and user privacy
+- [ ] AI Safety - Create Supervisor AI companion to oversee Autonomous Agent (Chain of thoughts) to improve faithfulness and safety
+- [ ] AI Safety - Research on problem decomposition approach to encourage context independent reasoning
+- [ ] AI Safety - Introduce mentor agent for Cof agent to proactively seek help from when it needs, with a new set of commands and resources
+- [ ] AI Safety - Improve prompt engineering to introduce human values and ethics into the AI
 - [ ] Integration - Connect to Zapier and IFTTT to allow users to connect to other services and define their own commands for Chain of Thoughts process
 
 ## Setting up Github Action CI / CD
