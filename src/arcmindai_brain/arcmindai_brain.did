@@ -1,7 +1,9 @@
 type Result = variant { Ok : vec float32; Err : text };
-service : (opt principal, text, text) -> {
+service : (opt principal, text, text, opt text, opt principal) -> {
   ask : (text, opt text, int8, opt text) -> (text);
+  check_cycles_and_topup : () -> ();
   generate_embeddings : (text, int8, opt text) -> (Result);
+  get_battery_canister : () -> (opt principal) query;
   get_owner : () -> (opt principal) query;
   update_owner : (principal) -> ();
 }

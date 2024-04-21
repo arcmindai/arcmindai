@@ -64,8 +64,8 @@ cd ../
 pwd
 
 # Deploy brain canister 
-echo Deploying brain canister with owner $CONTROLLER_PRINCIPAL, GPT model $GPT_MODEL and openai_api_key $OPENAI_API_KEY
-dfx deploy --network $IC_NETWORK arcmindai_brain --argument "(opt principal \"$CONTROLLER_PRINCIPAL\", \"$OPENAI_API_KEY\", \"$GPT_MODEL\")"
+echo Deploying brain canister with owner $CONTROLLER_PRINCIPAL, GPT model $GPT_MODEL, openai_api_key $OPENAI_API_KEY, BATTERY_API_KEY=$BATTERY_API_KEY, BATTERY_PRINCIAL=$BATTERY_PRINCIAL on $IC_NETWORK
+dfx deploy --network $IC_NETWORK arcmindai_brain --argument "(opt principal \"$CONTROLLER_PRINCIPAL\", \"$OPENAI_API_KEY\", \"$GPT_MODEL\", opt \"$BATTERY_API_KEY\", opt principal \"$BATTERY_PRINCIAL\")"
 
 echo Brain Owner:
 dfx canister --network $IC_NETWORK call arcmindai_brain get_owner
@@ -73,8 +73,8 @@ dfx canister --network $IC_NETWORK call arcmindai_brain get_owner
 BRAIN_PRINCIPAL=$(dfx canister --network $IC_NETWORK id arcmindai_brain)
 
 # Deploy tools canister
-echo Deploying tools canister with owner $CONTROLLER_PRINCIPAL on $IC_NETWORK with GOOGLE_API_KEY=$GOOGLE_API_KEY, GOOGLE_SEARCH_ENGINE_ID=$GOOGLE_SEARCH_ENGINE_ID
-dfx deploy --network $IC_NETWORK arcmindai_tools --argument "(opt principal \"$CONTROLLER_PRINCIPAL\", \"$GOOGLE_API_KEY\", \"$GOOGLE_SEARCH_ENGINE_ID\")"
+echo Deploying tools canister with owner $CONTROLLER_PRINCIPAL on $IC_NETWORK with GOOGLE_API_KEY=$GOOGLE_API_KEY, GOOGLE_SEARCH_ENGINE_ID=$GOOGLE_SEARCH_ENGINE_ID, BATTERY_API_KEY=$BATTERY_API_KEY, BATTERY_PRINCIAL=$BATTERY_PRINCIAL on $IC_NETWORK
+dfx deploy --network $IC_NETWORK arcmindai_tools --argument "(opt principal \"$CONTROLLER_PRINCIPAL\", \"$GOOGLE_API_KEY\", \"$GOOGLE_SEARCH_ENGINE_ID\", opt \"$BATTERY_API_KEY\", opt principal \"$BATTERY_PRINCIAL\")"
 
 echo Tools Owner:
 dfx canister --network $IC_NETWORK call arcmindai_tools get_owner
