@@ -1,5 +1,7 @@
-service : (opt principal, text, text) -> {
+service : (opt principal, text, text, opt text, opt principal) -> {
   browse_website : (text) -> (text);
+  check_cycles_and_topup : () -> ();
+  get_battery_canister : () -> (opt principal) query;
   get_owner : () -> (opt principal) query;
   google : (text) -> (text);
   update_owner : (principal) -> ();
