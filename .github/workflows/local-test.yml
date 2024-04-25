@@ -45,6 +45,6 @@ jobs:
           BEAMFI_PRINCIPAL: ${{ secrets.BEAMFI_PRINCIPAL }}
           BILLING_KEY: ${{ secrets.BILLING_KEY }}
           BATTERY_API_KEY: ${{ secrets.BATTERY_API_KEY }}
-          BATTERY_PRINCIAL: ${{ secrets.BATTERY_PRINCIAL }}
+          BATTERY_PRINCIPAL: ${{ secrets.BATTERY_PRINCIPAL }}
       - name: Show Controller Principal
         run: echo ${{ steps.provision.outputs.controller_principal }}
