@@ -54,8 +54,6 @@ use async_recursion::async_recursion;
 
 use crate::datatype::get_path;
 
-// 3 secs
-const NEW_GOALS_CHECK_MIN_INTERVAL_SECS: u64 = 3;
 // 3 days
 const CYCLES_BALANCE_CHECK_MIN_INTERVAL_SECS: u64 = 60 * 60 * 24 * 3;
 // Cycle usage threshold
@@ -762,6 +760,9 @@ fn start_new_goal(goal_string: String) {
     });
 
     insert_chat(ChatRole::User, goal_string.clone());
+
+    // run new goal in background
+    run_new_goal_async();
 }
 
 fn update_goal_status(index: u64, goal: Goal, status: GoalStatus) {
@@ -883,7 +884,6 @@ fn init(
     });
 
     // Start the periodic tasks
-    start_new_goals_check_timer(NEW_GOALS_CHECK_MIN_INTERVAL_SECS);
     start_cycles_check_timer(CYCLES_BALANCE_CHECK_MIN_INTERVAL_SECS);
 }
 
@@ -1198,24 +1198,14 @@ fn post_upgrade(
     );
 
     // Start the periodic tasks
-    start_new_goals_check_timer(NEW_GOALS_CHECK_MIN_INTERVAL_SECS);
     start_cycles_check_timer(CYCLES_BALANCE_CHECK_MIN_INTERVAL_SECS);
 }
 
-// ---------------------- Periodic Task Timer ----------------------------------------------
-#[update]
-fn start_new_goals_check_timer(secs: u64) {
-    let secs = Duration::from_secs(secs);
-    ic_cdk::println!(
-        "Controller canister: checking for new scheduled goal with {secs:?} interval..."
-    );
-
-    let timer_id = ic_cdk_timers::set_timer_interval(secs, || ic_cdk::spawn(process_new_goals()));
-
-    // Add the timer ID to the global vector.
-    TIMER_IDS.with(|timer_ids| timer_ids.borrow_mut().push(timer_id));
+fn run_new_goal_async() {
+    ic_cdk::spawn(process_new_goals())
 }
 
+// ---------------------- Periodic Task Timer ----------------------------------------------
 #[update]
 fn start_cycles_check_timer(secs: u64) {
     let secs = Duration::from_secs(secs);
