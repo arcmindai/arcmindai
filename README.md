@@ -141,6 +141,15 @@ awk 'NF {sub(/\r/, ""); printf "%s\\r\\n",$0;}' ~/.config/dfx/identity/default/i
 cat ~/.config/dfx/identity/default/wallets.json
 ```
 
+### Update arcmindvector Git submodule to the latest
+
+- make sure arcmindvector Git project has the latest changes pushed to the main branch
+- update the submodule in the parent project `arcmindai`:
+
+```
+git submodule update --remote
+```
+
 ## License
 
 See the [License](LICENSE) file for license rights and limitations (MIT).

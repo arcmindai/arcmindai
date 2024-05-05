@@ -17,7 +17,7 @@ GPT_MODEL=gpt-4
 
 # Deploy brain canister 
 CONTROLLER_PRINCIPAL=$(dfx canister --network $IC_NETWORK id arcmindai_controller)
-BATTERY_PRINCIAL=$(dfx canister --network $IC_NETWORK id cycles_battery)
+BATTERY_PRINCIPAL=$(dfx canister --network $IC_NETWORK id cycles_battery)
 
-echo Deploying brain canister with owner=$CONTROLLER_PRINCIPAL, GPT model=$GPT_MODEL and OPENAI_API_KEY=$OPENAI_API_KEY, BATTERY_PRINCIAL=$BATTERY_PRINCIAL, BATTERY_API_KEY=$BATTERY_API_KEY on $IC_NETWORK
-dfx deploy --network $IC_NETWORK arcmindai_brain --argument "(opt principal \"$CONTROLLER_PRINCIPAL\", \"$OPENAI_API_KEY\", \"$GPT_MODEL\", opt \"$BATTERY_API_KEY\", opt principal \"$BATTERY_PRINCIAL\")"
+echo Deploying brain canister with owner=$CONTROLLER_PRINCIPAL, GPT model=$GPT_MODEL and OPENAI_API_KEY=$OPENAI_API_KEY, BATTERY_PRINCIPAL=$BATTERY_PRINCIPAL, BATTERY_API_KEY=$BATTERY_API_KEY on $IC_NETWORK
+dfx deploy --network $IC_NETWORK arcmindai_brain --argument "(opt principal \"$CONTROLLER_PRINCIPAL\", \"$OPENAI_API_KEY\", \"$GPT_MODEL\", opt \"$BATTERY_API_KEY\", opt principal \"$BATTERY_PRINCIPAL\")"

@@ -5,6 +5,7 @@ members = [
     "src/arcmindai_tools",
     "src/cycles_battery"
 ]
+resolver = "1"
 
 [profile.release]
 lto = true

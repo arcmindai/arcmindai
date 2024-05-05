@@ -378,6 +378,8 @@ fn post_upgrade(
         s.borrow_mut().battery_canister = battery_canister;
         s.borrow_mut().battery_api_key = battery_api_key.clone();
     });
+
+    start_cycles_check_timer(CYCLES_BALANCE_CHECK_MIN_INTERVAL_SECS);
 }
 
 // ---------------------- Candid declarations did file generator ----------------------
