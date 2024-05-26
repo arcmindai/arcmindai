@@ -13,7 +13,7 @@ fi
 
 # To deplopy locally, update IC_NETWORK to local. To deploy to ic, update IC_NETWORK to ic.
 IC_NETWORK=${IC_NETWORK:-local}
-GPT_MODEL=gpt-4
+GPT_MODEL=gpt-4o
 
 # Deploy brain canister 
 CONTROLLER_PRINCIPAL=$(dfx canister --network $IC_NETWORK id arcmindai_controller)

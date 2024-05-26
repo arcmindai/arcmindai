@@ -33,7 +33,7 @@ BRAIN_PRINCIPAL=$(dfx canister --network $IC_NETWORK id arcmindai_brain)
 TOOLS_PRINCIPAL=$(dfx canister --network $IC_NETWORK id arcmindai_tools)
 BATTERY_PRINCIPAL=$(dfx canister --network $IC_NETWORK id cycles_battery)
 
-BROWSE_WEBSITE_GPT_MODEL=gpt-3.5-turbo-1106
+BROWSE_WEBSITE_GPT_MODEL=gpt-4o
 
 # Deploy controller canister
 echo Deploying controller canister BATTERY_PRINCIPAL=$BATTERY_PRINCIPAL, BATTERY_API_KEY=$BATTERY_API_KEY on $IC_NETWORK

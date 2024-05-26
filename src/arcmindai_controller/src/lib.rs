@@ -63,9 +63,9 @@ const CYCLES_TOPUP_AMT: u64 = 4 * CYCLES_ONE_TC;
 
 const CYCLES_TOPUP_GROUP: &str = "arcmindai_controller";
 
-const RECENT_CHAT_HISTORY: usize = 40;
+const RECENT_CHAT_HISTORY: usize = 80;
 const DATE_TIME_FORMAT: &str = "[year]-[month]-[day] [hour]:[minute]:[second]";
-const MAX_NUM_COF_PER_GOAL: u16 = 60;
+const MAX_NUM_COF_PER_GOAL: u16 = 100;
 const DEFAULT_MAX_NUM_THOUGHTS_ALLOWED: u16 = 500;
 
 #[derive(Serialize, Deserialize)]
@@ -960,6 +960,20 @@ pub fn update_owner(new_owner: Principal) {
 
 #[update(guard = "assert_owner")]
 #[candid_method(update)]
+pub fn update_browse_website_gpt_model(new_model: Option<String>) {
+    STATE.with(|state| {
+        state.borrow_mut().browse_website_gpt_model = new_model;
+    });
+}
+
+#[query]
+#[candid_method(query)]
+pub fn get_browse_website_gpt_model() -> Option<String> {
+    STATE.with(|state| (*state.borrow()).browse_website_gpt_model.clone())
+}
+
+#[update(guard = "assert_owner")]
+#[candid_method(update)]
 pub fn toggle_pause_cof() {
     let cur_pause = STATE
         .with(|state| (*state.borrow()).is_pause_chain_of_thoughts)
@@ -1165,7 +1179,7 @@ fn post_upgrade(
     _vector_canister: Option<Principal>,
     _beamfi_canister: Option<Principal>,
     battery_canister: Option<Principal>,
-    _browse_website_gpt_model: Option<String>,
+    browse_website_gpt_model: Option<String>,
     _billing_key: Option<String>,
     battery_api_key: Option<String>,
 ) {
@@ -1190,6 +1204,9 @@ fn post_upgrade(
         s.borrow_mut().battery_canister = battery_canister;
         s.borrow_mut().battery_api_key = battery_api_key.clone();
     });
+
+    // Update browse_website_gpt_model
+    update_browse_website_gpt_model(browse_website_gpt_model);
 
     // log update of battery_canister
     ic_cdk::println!(

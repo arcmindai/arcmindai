@@ -28,6 +28,32 @@ pub struct OpenAIResultMessage {
 }
 
 #[derive(serde::Serialize, Deserialize)]
+pub struct OpenAIResultMessageContent {
+    pub thoughts: OpenAIResultMessageContentThoughts,
+    pub command: OpenAIResultMessageContentCommand,
+}
+
+#[derive(serde::Serialize, Deserialize)]
+pub struct OpenAIResultMessageContentThoughts {
+    pub text: String,
+    pub reasoning: String,
+    pub plan: String,
+    pub criticism: String,
+    pub speak: String,
+}
+
+#[derive(serde::Serialize, Deserialize)]
+pub struct OpenAIResultMessageContentCommand {
+    pub name: String,
+    pub args: serde_json::Value,
+}
+
+#[derive(serde::Serialize, Deserialize)]
+pub struct OpenAIResultMessageContentCommandArgs {
+    pub query: String,
+}
+
+#[derive(serde::Serialize, Deserialize)]
 pub struct OpenAIResultUsage {
     pub prompt_tokens: u32,
     pub completion_tokens: u32,

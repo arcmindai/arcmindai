@@ -24,7 +24,7 @@ use async_recursion::async_recursion;
 use guards::assert_owner;
 
 mod tokenutil;
-use tokenutil::{truncate_question, MAX_16K_TOKENS};
+use tokenutil::{truncate_question, MAX_128K_TOKENS};
 
 mod httputil;
 use httputil::{
@@ -47,7 +47,6 @@ thread_local! {
 }
 
 // ---------------------- ArcMind AI Agent ----------------------
-const MAX_DEFAULT_TOKENS: usize = 8000;
 const MAX_NUM_RETIRES: i8 = 2;
 const GPT_TEMPERATURE: f32 = 0.5;
 
@@ -77,10 +76,7 @@ async fn ask(
     };
 
     // Truncate question if reaching the max token limit of the model
-    let max_token_limit = match gpt_model.as_str() {
-        "gpt-3.5-turbo-16k" => MAX_16K_TOKENS,
-        _ => MAX_DEFAULT_TOKENS,
-    };
+    let max_token_limit = MAX_128K_TOKENS;
 
     // log gpt_model and max_token_limit
     ic_cdk::println!(
@@ -162,8 +158,12 @@ fn transform_openai_chat_completion(args: TransformArgs) -> HttpResponse {
             .expect("Transformed response is not UTF-8 encoded.");
         let json_str = res_str.replace("\n", "");
 
-        let openai_result = serde_json::from_str(json_str.as_str());
+        let openai_result: Result<OpenAIResult, serde_json::Error> =
+            serde_json::from_str(json_str.as_str());
         if openai_result.is_err() {
+            // log invalid json str
+            ic_cdk::println!("Invalid JSON str = {:?}", json_str);
+
             res.body = format!("Invalid JSON str = {:?}", json_str)
                 .as_bytes()
                 .to_vec();
@@ -171,8 +171,14 @@ fn transform_openai_chat_completion(args: TransformArgs) -> HttpResponse {
         }
 
         let openai_body: OpenAIResult = openai_result.unwrap();
-        let content = &openai_body.choices[0].message.content;
-        res.body = content.as_bytes().to_vec();
+        let msg_content = &openai_body.choices[0].message.content;
+
+        // replace ``` with empty string
+        let msg_content = msg_content.replace("```", "");
+        // replace extra json title with empty string
+        let msg_content = msg_content.replace("json", "");
+
+        res.body = msg_content.as_bytes().to_vec();
         return res;
     }
 
@@ -297,19 +303,22 @@ pub fn get_owner() -> Option<Principal> {
 #[candid_method(update)]
 pub fn update_owner(new_owner: Principal) {
     STATE.with(|state| {
-        let open_api_key = state.borrow().openai_api_key.clone();
-        let gpt_model = state.borrow().gpt_model.clone();
-        let battery_api_key = state.borrow().battery_api_key.clone();
-        let battery_canister = state.borrow().battery_canister.clone();
-
-        *state.borrow_mut() = State {
-            owner: Some(new_owner),
-            openai_api_key: open_api_key,
-            gpt_model: gpt_model,
-            battery_api_key: battery_api_key,
-            battery_canister: battery_canister,
-        };
+        state.borrow_mut().owner = Some(new_owner);
     });
+}
+
+#[update(guard = "assert_owner")]
+#[candid_method(update)]
+pub fn update_gpt_model(new_gpt_model: String) {
+    STATE.with(|state| {
+        state.borrow_mut().gpt_model = new_gpt_model;
+    });
+}
+
+#[query]
+#[candid_method(query)]
+pub fn get_gpt_model() -> String {
+    STATE.with(|state| (*state.borrow()).gpt_model.clone())
 }
 
 #[update]
@@ -403,7 +412,7 @@ fn pre_upgrade() {
 fn post_upgrade(
     _owner: Option<Principal>,
     _openai_api_key: String,
-    _gpt_model: String,
+    gpt_model: String,
     battery_api_key: Option<String>,
     battery_canister: Option<Principal>,
 ) {
@@ -417,6 +426,9 @@ fn post_upgrade(
         s.borrow_mut().battery_canister = battery_canister;
         s.borrow_mut().battery_api_key = battery_api_key.clone();
     });
+
+    // Update gpt_model
+    update_gpt_model(gpt_model);
 
     start_cycles_check_timer(CYCLES_BALANCE_CHECK_MIN_INTERVAL_SECS);
 }
