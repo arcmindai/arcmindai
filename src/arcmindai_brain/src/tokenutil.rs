@@ -1,6 +1,6 @@
 use tiktoken_rs::cl100k_base;
 
-pub const MAX_16K_TOKENS: usize = 15000;
+pub const MAX_128K_TOKENS: usize = 127 * 1000;
 
 pub fn truncate_question(question: String, max_token_limit: usize) -> String {
     // check no. of tokens again
@@ -16,7 +16,7 @@ pub fn truncate_question(question: String, max_token_limit: usize) -> String {
             .collect::<String>();
         ic_cdk::println!(
             "tokens_len reached limit {}!! Question is truncated to: \n{}",
-            MAX_16K_TOKENS,
+            MAX_128K_TOKENS,
             safe_question
         );
 

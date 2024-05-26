@@ -29,6 +29,7 @@ service : (
   get_battery_canister : () -> (opt principal) query;
   get_beamfi_canister : () -> (opt principal) query;
   get_brain_canister : () -> (opt principal) query;
+  get_browse_website_gpt_model : () -> (opt text) query;
   get_chathistory : () -> (vec ChatHistory) query;
   get_goal : (nat64) -> (opt Goal) query;
   get_max_num_thoughts_allowed : () -> (nat64) query;
@@ -43,5 +44,6 @@ service : (
   is_paused : () -> (bool) query;
   start_new_goal : (text) -> ();
   toggle_pause_cof : () -> ();
+  update_browse_website_gpt_model : (opt text) -> ();
   update_owner : (principal) -> ();
 }

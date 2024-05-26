@@ -4,6 +4,8 @@ service : (opt principal, text, text, opt text, opt principal) -> {
   check_cycles_and_topup : () -> ();
   generate_embeddings : (text, int8, opt text) -> (Result);
   get_battery_canister : () -> (opt principal) query;
+  get_gpt_model : () -> (text) query;
   get_owner : () -> (opt principal) query;
+  update_gpt_model : (text) -> ();
   update_owner : (principal) -> ();
 }

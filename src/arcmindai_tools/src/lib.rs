@@ -32,7 +32,7 @@ mod util;
 use util::generate_request_id;
 
 const BROWSE_WEBSITE_PROXY_URL: &str = "https://browsewebsite-4gbndkvjta-uc.a.run.app";
-const MAX_NUM_GOOGLE_SEARCH_RESULTS: i32 = 3;
+const MAX_NUM_GOOGLE_SEARCH_RESULTS: i32 = 6;
 
 // 3 days
 const CYCLES_BALANCE_CHECK_MIN_INTERVAL_SECS: u64 = 60 * 60 * 24 * 3;
