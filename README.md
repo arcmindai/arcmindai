@@ -150,6 +150,12 @@ cat ~/.config/dfx/identity/default/wallets.json
 git submodule update --remote
 ```
 
+## Update Rust and 3rd party dependencies
+
+```bash
+cargo update
+```
+
 ## License
 
 See the [License](LICENSE) file for license rights and limitations (MIT).

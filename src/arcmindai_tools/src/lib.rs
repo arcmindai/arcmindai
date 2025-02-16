@@ -23,8 +23,6 @@ use urlencoding::encode;
 mod guards;
 use guards::assert_owner;
 
-use tinytemplate::TinyTemplate;
-
 mod config;
 use config::GOOGLE_SEARCH_URL;
 
@@ -52,13 +50,6 @@ pub struct State {
     pub battery_canister: Option<Principal>,
 }
 
-#[derive(Serialize)]
-struct GoogleSearchContext {
-    google_api_key: String,
-    search_engine_id: String,
-    query: String,
-}
-
 // Mutable global state
 thread_local! {
     static STATE: RefCell<State> = RefCell::default();
@@ -68,20 +59,24 @@ thread_local! {
 #[update(guard = "assert_owner")]
 #[candid_method(update)]
 async fn browse_website(url: String) -> String {
-    let request_headers = vec![HttpHeader {
-        name: "User-Agent".to_string(),
-        value: "ArcMind AI Agent".to_string(),
-    }];
-
-    let url_encoded_weburl = encode(url.as_str());
     let request_id = generate_request_id();
+    let headers = vec![
+        HttpHeader {
+            name: "user-agent".to_string(),
+            value: "ArcMind AI Agent".to_string(),
+        },
+        HttpHeader {
+            name: "idempotency-key".to_string(),
+            value: request_id,
+        },
+        HttpHeader {
+            name: "web-url".to_string(),
+            value: url,
+        },
+    ];
 
     // add requestId to OPENAI_URL
-    let final_url = BROWSE_WEBSITE_PROXY_URL.to_string()
-        + "?requestId="
-        + &request_id
-        + "&webURL="
-        + &url_encoded_weburl;
+    let final_url = BROWSE_WEBSITE_PROXY_URL.to_string();
 
     ic_cdk::api::print(format!(
         "\n ------------- Browse Website URL -------------\n{:?}",
@@ -91,8 +86,8 @@ async fn browse_website(url: String) -> String {
     let request = CanisterHttpRequestArgument {
         url: final_url.clone(),
         max_response_bytes: None,
-        method: HttpMethod::GET,
-        headers: request_headers,
+        method: HttpMethod::POST,
+        headers,
         body: None,
         transform: Some(TransformContext::new(transform, vec![])),
     };
@@ -106,6 +101,11 @@ async fn browse_website(url: String) -> String {
         Err((r, m)) => {
             let message =
                 format!("The browse_website resulted into error. RejectionCode: {r:?}, Error: {m}");
+            ic_cdk::api::print(format!(
+                "\n\nReceived an error from browse_website: {:?}",
+                message
+            ));
+
             message
         }
     }
@@ -115,38 +115,51 @@ async fn browse_website(url: String) -> String {
 #[update(guard = "assert_owner")]
 #[candid_method(update)]
 async fn google(query: String) -> String {
-    let request_headers = vec![HttpHeader {
-        name: "User-Agent".to_string(),
-        value: "ArcMind AI Agent".to_string(),
-    }];
-
     ic_cdk::api::print(format!(
         "\n ------------- Google Search -------------\n{:?}",
         query
     ));
 
-    let mut tt = TinyTemplate::new();
-    tt.add_template("google_search", GOOGLE_SEARCH_URL).unwrap();
-
     let google_api_key = STATE.with(|state| (*state.borrow()).google_api_key.clone());
     let search_engine_id = STATE.with(|state| (*state.borrow()).search_engine_id.clone());
     let url_encoded_query = encode(query.as_str());
 
-    let context = GoogleSearchContext {
-        google_api_key: google_api_key.to_string(),
-        search_engine_id: search_engine_id.to_string(),
-        query: url_encoded_query.to_string(),
-    };
-
-    let google_url = tt.render("google_search", &context).unwrap();
     let request_id = generate_request_id();
-    let final_url = google_url.to_string() + "&requestId=" + &request_id;
+    let headers = vec![
+        HttpHeader {
+            name: "user-agent".to_string(),
+            value: "ArcMind AI Agent".to_string(),
+        },
+        HttpHeader {
+            name: "idempotency-key".to_string(),
+            value: request_id,
+        },
+        HttpHeader {
+            name: "google-api-key".to_string(),
+            value: google_api_key.to_string(),
+        },
+        HttpHeader {
+            name: "search-engine-id".to_string(),
+            value: search_engine_id.to_string(),
+        },
+        HttpHeader {
+            name: "url-encoded-query".to_string(),
+            value: url_encoded_query.to_string(),
+        },
+    ];
+
+    let google_url = GOOGLE_SEARCH_URL;
+
+    ic_cdk::api::print(format!(
+        "\n ------------- Google Search URL -------------\n{:?}",
+        google_url
+    ));
 
     let request = CanisterHttpRequestArgument {
-        url: final_url,
+        url: google_url.to_string(),
         max_response_bytes: None,
-        method: HttpMethod::GET,
-        headers: request_headers,
+        method: HttpMethod::POST,
+        headers,
         body: None,
         transform: Some(TransformContext::new(transform, vec![])),
     };
@@ -160,6 +173,8 @@ async fn google(query: String) -> String {
         Err((r, m)) => {
             let message =
                 format!("The google resulted into error. RejectionCode: {r:?}, Error: {m}");
+            ic_cdk::api::print(format!("\n\nReceived an error from google: {:?}", message));
+
             message
         }
     }
