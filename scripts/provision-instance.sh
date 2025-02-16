@@ -41,8 +41,8 @@ if [[ -z "${BATTERY_PRINCIPAL}" ]]; then
   exit 1
 fi
 
-GPT_MODEL=gpt-4
-BROWSE_WEBSITE_GPT_MODEL=gpt-3.5-turbo-1106
+GPT_MODEL=gpt-4o
+BROWSE_WEBSITE_GPT_MODEL=gpt-4o
 
 # To deplopy locally, update IC_NETWORK to local. To deploy to ic, update IC_NETWORK to ic.
 IC_NETWORK=${IC_NETWORK:-local}

@@ -102,17 +102,16 @@ async fn ask(
 
     let json_utf8: Vec<u8> = request_body.to_string().into_bytes();
     let request_body_json: Option<Vec<u8>> = Some(json_utf8);
-    let request_id = generate_request_id(opt_request_id);
+    let request_id = generate_request_id(opt_request_id.clone());
 
     // add requestId to OPENAI_URL
     let openai_url = "https://".to_string() + OPENAI_HOST;
-    let final_url = openai_url + "?requestId=" + &request_id;
     let openai_api_key = STATE.with(|state| (*state.borrow()).openai_api_key.clone());
-    let headers = create_header(openai_api_key, OPENAI_HOST.to_string());
+    let headers = create_header(openai_api_key, OPENAI_HOST.to_string(), request_id.clone());
 
     let request = CanisterHttpRequestArgument {
-        url: final_url.to_string(),
-        max_response_bytes: None,
+        url: openai_url.to_string(),
+        max_response_bytes: Some(2000000),
         method: HttpMethod::POST,
         headers: headers,
         body: request_body_json,
@@ -206,23 +205,32 @@ pub async fn generate_embeddings(
 
     // add requestId to OPENAI_URL
     let openai_url = "https://".to_string() + OPENAI_EMBEDDINGS_HOST;
-    let final_url = openai_url + "?requestId=" + &request_id;
     let openai_api_key = STATE.with(|state| (*state.borrow()).openai_api_key.clone());
-    let headers = create_header(openai_api_key, OPENAI_EMBEDDINGS_HOST.to_string());
+    let headers = create_header(
+        openai_api_key,
+        OPENAI_EMBEDDINGS_HOST.to_string(),
+        request_id.clone(),
+    );
+
+    ic_cdk::println!("Request headers {:?}", headers);
 
     let request = CanisterHttpRequestArgument {
-        url: final_url.to_string(),
+        url: openai_url.to_string(),
         max_response_bytes: None,
         method: HttpMethod::POST,
-        headers: headers,
+        headers,
         body: request_body_json,
         transform: Some(TransformContext::new(transform_openai_embeddings, vec![])),
     };
+
+    ic_cdk::println!("Making HTTP request {}", openai_url);
 
     match http_request(request).await {
         Ok((response,)) => {
             let res_str = String::from_utf8(response.body.clone())
                 .expect("Transformed response is not UTF-8 encoded.");
+
+            ic_cdk::println!("HTTP response {}", res_str);
 
             let openai_result = serde_json::from_str(res_str.as_str());
             if openai_result.is_err() {
@@ -235,15 +243,17 @@ pub async fn generate_embeddings(
             return Ok(embedding.clone());
         }
         Err((r, m)) => {
+            let message = format!(
+                "The generate_embeddings resulted into error. RejectionCode: {r:?}, Error: {m}"
+            );
+            ic_cdk::println!("{}", message);
+
             if num_retries < MAX_NUM_RETIRES {
-                ic_cdk::println!("Retrying ask, num_retries: {}", num_retries);
+                ic_cdk::println!("Retrying generate_embeddings, num_retries: {}", num_retries);
                 return generate_embeddings(content.clone(), num_retries + 1, Some(request_id))
                     .await;
             }
 
-            let message = format!(
-                "The generate_embeddings resulted into error. RejectionCode: {r:?}, Error: {m}"
-            );
             return Err(message);
         }
     }
@@ -259,6 +269,8 @@ fn transform_openai_embeddings(args: TransformArgs) -> HttpResponse {
     if res.status == 200 {
         let res_str = String::from_utf8(args.response.body.clone())
             .expect("Transformed response is not UTF-8 encoded.");
+        ic_cdk::println!("HTTP response {}", res_str);
+
         let json_str = res_str.replace("\n", "");
         res.body = json_str.as_bytes().to_vec();
         return res;

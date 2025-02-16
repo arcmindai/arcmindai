@@ -9,22 +9,34 @@ pub const OPENAI_EMBEDDINGS_HOST: &str = "openaiembeddings-4gbndkvjta-uc.a.run.a
 
 pub const OPENAI_EMBEDDINGS_MODEL: &str = "text-embedding-ada-002";
 
-pub fn create_header(openai_api_key: String, host: String) -> Vec<HttpHeader> {
+pub fn create_header(openai_api_key: String, host: String, request_id: String) -> Vec<HttpHeader> {
     let request_headers = vec![
         HttpHeader {
-            name: "Host".to_string(),
-            value: format!("{host}:443"),
+            name: "authority".to_string(),
+            value: host,
         },
         HttpHeader {
-            name: "User-Agent".to_string(),
+            name: "scheme".to_string(),
+            value: "https".to_string(),
+        },
+        HttpHeader {
+            name: "user-agent".to_string(),
             value: "ArcMind AI Agent".to_string(),
         },
         HttpHeader {
-            name: "Content-Type".to_string(),
+            name: "content-type".to_string(),
             value: "application/json".to_string(),
         },
         HttpHeader {
-            name: "Authorization".to_string(),
+            name: "idempotency-key".to_string(),
+            value: request_id,
+        },
+        HttpHeader {
+            name: "accept".to_string(),
+            value: "application/json".to_string(),
+        },
+        HttpHeader {
+            name: "authorization".to_string(),
             value: format!("Bearer {openai_api_key}").to_string(),
         },
     ];
