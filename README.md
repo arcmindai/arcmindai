@@ -4,7 +4,7 @@ ArcMind AI brings Generative AI to organizations using [Autonomous AI Agent](htt
 
 Technically, ArcMind AI is a Long-Running Agent equipped with a primary main loop that can orchestrate various tools and memory stores to accomplish numerous sub-tasks that make up a larger task. Utilizing the power of LLMs such as GPT-3/4 or other open-source alternatives, these agents can retain both short-term and long-term memory for optimized task execution. For ArcMind, we leverage ArcMind Vector DB Canister as a long-term memory vector store for semantic search, enabling efficient and accurate task execution.
 
-- Every user will have their own suite of Canisters and long-term memory, that can be accessed by their NFID with [ArcMindWeb](https://arcmindai.app/)
+- Every user will have their own suite of Canisters and long-term memory, that can be accessed by their NFID with ArcMindWeb
 - ArcMind AI can communicate with other Canister smart contracts to take action on behalf of users e.g connect to [BeamFi smart contracts](https://github.com/BeamFi/BeamFiProtocol) to stream payment to other users
 - Written in robust Rust language
 
@@ -101,7 +101,6 @@ The `brain` canister could either connect to LLM remotely or locally hosted open
 ## Interacting with the canisters
 
 All users interactions are done via Main loop controller canister.
-We have some [sample shell scripts](/interact) to interact with the controller but the best way is to use [ArcmindWeb](https://arcmindai.app/) to interact with the canisters, which we will make open source soon for the community to contribute. We will provide instructions to run the web app locally.
 
 ## Roadmap
 
@@ -166,7 +165,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details about how to contribute to th
 
 ## Authors
 
-Ideas, Code & Architecture: Henry Chan, [henry@arcmindai.app](mailto:henry@arcmindai.app), Twitter: [@kinwo](https://twitter.com/kinwo)
+Ideas, Code & Architecture: Henry Chan, [henry@controlaltdevelop.com](mailto:henry@controlaltdevelop.com), Twitter: [@kinwo](https://twitter.com/kinwo)
 
 ## References
 
