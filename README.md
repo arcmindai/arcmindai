@@ -8,6 +8,8 @@ Technically, ArcMind AI is a Long-Running Agent equipped with a primary main loo
 - ArcMind AI can communicate with other Canister smart contracts to take action on behalf of users e.g connect to [BeamFi smart contracts](https://github.com/BeamFi/BeamFiProtocol) to stream payment to other users
 - Written in robust Rust language
 
+[AU R&D Document](docs/R&DExtract.pdf)
+
 ## Demo
 
 User: Explain the benefits of Vitamin D for sleep
@@ -17,8 +19,6 @@ User: Explain the benefits of Vitamin D for sleep
 See the full demo screenshots of the question at [samples](samples/images/)
 
 We also have a set of other sample Chain of Thoughts questions and responses in the [samples](samples/) folder for you to explore but they use the old Web UI. Simply download the mhtml file with mhtml extension and open it in your browser.
-
-A full video demo is coming soon.
 
 ## Prerequisites
 
