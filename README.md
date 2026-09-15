@@ -8,7 +8,7 @@ Technically, ArcMind AI is a Long-Running Agent equipped with a primary main loo
 - ArcMind AI can communicate with other Canister smart contracts to take action on behalf of users e.g connect to [BeamFi smart contracts](https://github.com/BeamFi/BeamFiProtocol) to stream payment to other users
 - Written in robust Rust language
 
-[AU R&D Document](docs/R&DExtract.pdf)
+[AU R&D Document](docs/ExperimentExtract.pdf)
 
 ## Demo
 
